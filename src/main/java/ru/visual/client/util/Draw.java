@@ -1,7 +1,14 @@
 package ru.visual.client.util;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FontDescription;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Style;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 
 /** Мелкие помощники для рисования. Все цвета - ARGB (0xAARRGGBB). */
@@ -42,9 +49,61 @@ public final class Draw {
         return accent();
     }
 
+    // ---------- шрифт ----------
+
+    private static final Style[] UI = new Style[7], BOLD = new Style[7];
+    private static final Identifier CIRCLE = Identifier.fromNamespaceAndPath("pepevisual", "textures/gui/circle.png");
+    private static final Identifier SHADOW = Identifier.fromNamespaceAndPath("pepevisual", "textures/gui/shadow.png");
+
+    static {
+        // Отдельный шрифт под каждый масштаб интерфейса: буквы растеризуются ровно в пиксели экрана и не "плывут".
+        for (int i = 1; i <= 6; i++) {
+            UI[i] = Style.EMPTY.withFont(new FontDescription.Resource(Identifier.fromNamespaceAndPath("pepevisual", "ui" + i)));
+            BOLD[i] = Style.EMPTY.withFont(new FontDescription.Resource(Identifier.fromNamespaceAndPath("pepevisual", "bold" + i)));
+        }
+    }
+
+    /** Меню выключает тень текста (на гладком шрифте она выглядит грязно). */
+    public static boolean noShadow;
+
+    private static int scale() {
+        return Mth.clamp(Minecraft.getInstance().getWindow().getGuiScale(), 1, 6);
+    }
+
+    /** Текст в текущем шрифте клиента (гладкий Inter или стандартный). */
+    public static Component comp(String s) {
+        return comp(s, Theme.boldFont());
+    }
+
+    public static Component comp(String s, boolean bold) {
+        MutableComponent c = Component.literal(s);
+        if (!Theme.smoothFont()) return bold ? c.withStyle(net.minecraft.ChatFormatting.BOLD) : c;
+        return c.setStyle(bold ? BOLD[scale()] : UI[scale()]);
+    }
+
+    private static Font font() {
+        return Minecraft.getInstance().font;
+    }
+
+    private static boolean shadow() {
+        return !noShadow && Theme.textShadow();
+    }
+
     public static void text(GuiGraphics g, String s, int x, int y, int color) {
-        g.drawString(Minecraft.getInstance().font, s, x, y, color);
+        if (s == null) return;
+        if (Theme.smoothFont()) g.drawString(font(), comp(s), x, y, color, shadow());
+        else g.drawString(font(), s, x, y, color, shadow());
         track(x, y, x + width(s), y + 9);
+    }
+
+    /** Жирный текст (заголовки). */
+    public static void textBold(GuiGraphics g, String s, int x, int y, int color) {
+        g.drawString(font(), comp(s, true), x, y, color, shadow());
+        track(x, y, x + widthBold(s), y + 9);
+    }
+
+    public static int widthBold(String s) {
+        return font().width(comp(s, true));
     }
 
     public static void textCentered(GuiGraphics g, String s, int cx, int y, int color) {
@@ -56,7 +115,116 @@ public final class Draw {
     }
 
     public static int width(String s) {
-        return Minecraft.getInstance().font.width(s);
+        if (s == null) return 0;
+        return Theme.smoothFont() ? font().width(comp(s)) : font().width(s);
+    }
+
+    /** Обрезает строку с многоточием под ширину. */
+    public static String trim(String s, int maxWidth) {
+        if (width(s) <= maxWidth) return s;
+        while (s.length() > 1 && width(s + "…") > maxWidth) s = s.substring(0, s.length() - 1);
+        return s + "…";
+    }
+
+    // ---------- скруглённые фигуры ----------
+
+    /** Текущий радиус скругления из Interface. */
+    public static int r() {
+        return Theme.radius();
+    }
+
+    /** Плашка HUD: скругление и тень берутся из Interface. */
+    public static void panel(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
+        if (Theme.shadows()) shadow(g, x1, y1, x2, y2, 4, Math.min(0x70, (color >>> 24) / 2) << 24);
+        round(g, x1, y1, x2, y2, Theme.radius(), color);
+        track(x1, y1, x2, y2);
+    }
+
+    /** Прямоугольник со скруглёнными углами (сглаженными, через текстуру круга). */
+    public static void round(GuiGraphics g, int x1, int y1, int x2, int y2, int r, int color) {
+        r = Math.min(r, Math.min((x2 - x1) / 2, (y2 - y1) / 2));
+        if (r <= 0) {
+            g.fill(x1, y1, x2, y2, color);
+            return;
+        }
+        g.fill(x1 + r, y1, x2 - r, y2, color);
+        g.fill(x1, y1 + r, x1 + r, y2 - r, color);
+        g.fill(x2 - r, y1 + r, x2, y2 - r, color);
+        corner(g, x1, y1, r, 0, 0, color);
+        corner(g, x2 - r, y1, r, 16, 0, color);
+        corner(g, x1, y2 - r, r, 0, 16, color);
+        corner(g, x2 - r, y2 - r, r, 16, 16, color);
+    }
+
+    /** Скруглённый прямоугольник с вертикальным градиентом. */
+    public static void roundGradient(GuiGraphics g, int x1, int y1, int x2, int y2, int r, int top, int bottom) {
+        r = Math.min(r, Math.min((x2 - x1) / 2, (y2 - y1) / 2));
+        if (r <= 0) {
+            g.fillGradient(x1, y1, x2, y2, top, bottom);
+            return;
+        }
+        g.fill(x1 + r, y1, x2 - r, y1 + r, top);
+        g.fill(x1 + r, y2 - r, x2 - r, y2, bottom);
+        g.fillGradient(x1, y1 + r, x2, y2 - r, top, bottom);
+        corner(g, x1, y1, r, 0, 0, top);
+        corner(g, x2 - r, y1, r, 16, 0, top);
+        corner(g, x1, y2 - r, r, 0, 16, bottom);
+        corner(g, x2 - r, y2 - r, r, 16, 16, bottom);
+    }
+
+    /** Скруглённая рамка толщиной 1. */
+    public static void roundOutline(GuiGraphics g, int x1, int y1, int x2, int y2, int r, int color) {
+        r = Math.min(r, Math.min((x2 - x1) / 2, (y2 - y1) / 2));
+        g.fill(x1 + r, y1, x2 - r, y1 + 1, color);
+        g.fill(x1 + r, y2 - 1, x2 - r, y2, color);
+        g.fill(x1, y1 + r, x1 + 1, y2 - r, color);
+        g.fill(x2 - 1, y1 + r, x2, y2 - r, color);
+        if (r > 0) {
+            // углы: внешняя четверть круга минус внутренняя дают тонкую дугу; для 1px достаточно точек
+            for (int i = 0; i < r; i++) {
+                double a = Math.PI / 2 * (i + 0.5) / r;
+                int dx = (int) Math.round((1 - Math.cos(a)) * (r - 0.5));
+                int dy = (int) Math.round((1 - Math.sin(a)) * (r - 0.5));
+                g.fill(x1 + dx, y1 + dy, x1 + dx + 1, y1 + dy + 1, color);
+                g.fill(x2 - dx - 1, y1 + dy, x2 - dx, y1 + dy + 1, color);
+                g.fill(x1 + dx, y2 - dy - 1, x1 + dx + 1, y2 - dy, color);
+                g.fill(x2 - dx - 1, y2 - dy - 1, x2 - dx, y2 - dy, color);
+            }
+        }
+    }
+
+    private static void corner(GuiGraphics g, int x, int y, int r, int u, int v, int color) {
+        g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE, x, y, u, v, r, r, 16, 16, 32, 32, color);
+    }
+
+    /** Сглаженный круг диаметром d с левым верхним углом в (x, y). */
+    public static void circle(GuiGraphics g, int x, int y, int d, int color) {
+        g.blit(RenderPipelines.GUI_TEXTURED, CIRCLE, x, y, 0, 0, d, d, 32, 32, 32, 32, color);
+    }
+
+    /** Мягкая тень/свечение вокруг прямоугольника (s - размытие в пикселях). */
+    public static void shadow(GuiGraphics g, int x1, int y1, int x2, int y2, int s, int color) {
+        if (s <= 0 || (color >>> 24) == 0) return;
+        int w = x2 - x1, h = y2 - y1;
+        if (w <= 0 || h <= 0) return;
+        var p = RenderPipelines.GUI_TEXTURED;
+        g.blit(p, SHADOW, x1 - s, y1 - s, 0, 0, s, s, 32, 32, 64, 64, color);
+        g.blit(p, SHADOW, x2, y1 - s, 32, 0, s, s, 32, 32, 64, 64, color);
+        g.blit(p, SHADOW, x1 - s, y2, 0, 32, s, s, 32, 32, 64, 64, color);
+        g.blit(p, SHADOW, x2, y2, 32, 32, s, s, 32, 32, 64, 64, color);
+        g.blit(p, SHADOW, x1, y1 - s, 31, 0, w, s, 2, 32, 64, 64, color);
+        g.blit(p, SHADOW, x1, y2, 31, 32, w, s, 2, 32, 64, 64, color);
+        g.blit(p, SHADOW, x1 - s, y1, 0, 31, s, h, 32, 2, 64, 64, color);
+        g.blit(p, SHADOW, x2, y1, 32, 31, s, h, 32, 2, 64, 64, color);
+    }
+
+    /** Плавное смешивание двух ARGB цветов. */
+    public static int mix(int a, int b, float t) {
+        t = Mth.clamp(t, 0f, 1f);
+        int aa = a >>> 24, ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255;
+        int ba = b >>> 24, br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255;
+        return ((int) (aa + (ba - aa) * t) << 24) | ((int) (ar + (br - ar) * t) << 16)
+                | ((int) (ag + (bg - ag) * t) << 8) | (int) (ab + (bb - ab) * t);
     }
 
     public static void rect(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {

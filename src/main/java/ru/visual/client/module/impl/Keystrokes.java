@@ -24,7 +24,7 @@ public class Keystrokes extends HudModule {
     }
 
     private void key(GuiGraphics g, String label, int x, int y, int w, boolean down) {
-        Draw.rect(g, x, y, x + w, y + 18, down ? Draw.withAlpha(Draw.accent(), 0xC0) : Draw.bg());
+        Draw.panel(g, x, y, x + w, y + 18, down ? Draw.withAlpha(Draw.accent(), 0xC0) : Draw.bg());
         Draw.textCentered(g, label, x + w / 2, y + 5, down ? Draw.WHITE : Draw.GRAY);
     }
 }

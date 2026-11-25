@@ -32,8 +32,8 @@ public class ModuleList extends HudModule implements Config.DefaultOn {
             String s = label(m);
             int tw = Draw.width(s);
             int c = Draw.bar(i);
-            Draw.rect(g, w - tw - 8, y, w - 2, y + 11, Draw.bg());
-            Draw.rect(g, w - 3, y, w - 2, y + 11, c);
+            Draw.panel(g, w - tw - 8, y, w - 2, y + 11, Draw.bg());
+            Draw.rect(g, w - 4, y + 2, w - 3, y + 9, c);
             Draw.text(g, m.name, w - tw - 5, y + 2, c);
             if (m.info() != null) Draw.text(g, " " + m.info(), w - tw - 5 + Draw.width(m.name), y + 2, Draw.GRAY);
             y += 11;

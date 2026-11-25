@@ -2,6 +2,7 @@ package ru.visual.client.gui;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -13,6 +14,7 @@ import ru.visual.client.module.Category;
 import ru.visual.client.module.Config;
 import ru.visual.client.module.Module;
 import ru.visual.client.module.ModuleManager;
+import ru.visual.client.module.impl.PepeBackground;
 import ru.visual.client.setting.BoolSetting;
 import ru.visual.client.setting.ColorSetting;
 import ru.visual.client.setting.ModeSetting;
@@ -21,248 +23,487 @@ import ru.visual.client.setting.Setting;
 import ru.visual.client.util.Draw;
 
 import java.util.ArrayList;
-import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * Меню клиента (Right Shift). ЛКМ по функции - вкл/выкл, ПКМ - настройки и назначение клавиши.
- * При наведении на любую функцию или настройку рядом с курсором появляется описание.
+ * Меню клиента (Right Shift): окно по центру экрана, слева вкладки разделов, справа карточки функций в 1-2 колонки.
+ * ЛКМ по карточке - вкл/выкл, ПКМ - раскрыть настройки. Печатай с клавиатуры - поиск по всем функциям.
+ * Окно всегда влезает в экран при любом масштабе интерфейса (раньше 7 колонок не помещались и первая уезжала за край).
  */
 public class ClickGuiScreen extends Screen {
-    private static final int HEAD = 16, ROW = 14, GAP = 6;
+    private static final int TOP = 32, HEAD = 30, ROW = 16, ROW_TALL = 24, GAP = 6;
+
+    private static final int C_WINDOW = 0xF2111118;
+    private static final int C_SIDEBAR = 0x50000000;
+    private static final int C_CARD = 0xFF1A1A24;
+    private static final int C_CARD_HOVER = 0xFF23232F;
+    private static final int C_FIELD = 0xFF2A2A38;
+    private static final int C_TEXT = 0xFFE8E8F0;
+    private static final int C_MUTED = 0xFF8A8A9A;
+    private static final int C_DIM = 0xFF6A6A78;
+
+    /** Выбранная вкладка и раскрытые карточки сохраняются между открытиями меню. */
+    private static Category selected = Category.VISUAL;
+    private static final Set<Module> expanded = new HashSet<>();
 
     private interface Drag {
-        void apply(double mouseX, int x1, int x2);
+        void apply(double mouseX);
     }
 
     private record Hit(int x1, int y1, int x2, int y2, Runnable left, Runnable right, Drag drag) {}
 
-    private final Map<Category, Integer> scroll = new EnumMap<>(Category.class);
-    private final Map<Category, int[]> panelRects = new EnumMap<>(Category.class);
-    private final Set<Module> expanded = new HashSet<>();
     private final List<Hit> hits = new ArrayList<>();
+    /** Анимации карточек: [0] - включение, [1] - наведение, [2] - раскрытие. */
+    private final Map<Module, float[]> anim = new HashMap<>();
+    private final Map<Setting<?>, float[]> setAnim = new HashMap<>();
+    /** Плавная прокрутка: ключ вкладки -> [текущее, цель]. */
+    private final Map<String, float[]> scroll = new HashMap<>();
+
     private Drag dragging;
-    private int dragX1, dragX2;
     private Module binding;
     private String tooltip;
-    private int pw = 130;
+    private String search = "";
+    private long openTime, lastFrame, ignoreCharsUntil;
+    private float dt;
+    private float tabY = Float.NaN;
+    private float scale = 1f, offY;
+    private int contentX1, contentY1, contentX2, contentY2;
 
     public ClickGuiScreen() {
         super(Component.literal("Pepe Visual"));
     }
 
+    // ---------------------------------------------------------------- координаты (анимация открытия масштабирует окно)
+
+    private double localX(double x) {
+        return (x - this.width / 2.0) / scale + this.width / 2.0;
+    }
+
+    private double localY(double y) {
+        return (y - this.height / 2.0 - offY) / scale + this.height / 2.0;
+    }
+
+    private float approach(float cur, float target, float speed) {
+        return cur + (target - cur) * Math.min(1f, dt * speed);
+    }
+
+    // ---------------------------------------------------------------- отрисовка
+
+    @Override
+    public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float delta) {
+        // Без ванильной "майнкрафтовской" подложки: только размытие мира, затемнение рисуем сами
+        if (this.minecraft.level == null) super.renderBackground(g, mouseX, mouseY, delta);
+        else this.renderBlurredBackground(g);
+    }
+
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float delta) {
+        long now = System.currentTimeMillis();
+        if (openTime == 0) {
+            openTime = now;
+            lastFrame = now;
+        }
+        dt = Math.min(0.1f, (now - lastFrame) / 1000f);
+        lastFrame = now;
+        float t = Mth.clamp((now - openTime) / 220f, 0f, 1f);
+        float e = 1f - (1f - t) * (1f - t) * (1f - t);
+
         hits.clear();
-        panelRects.clear();
         tooltip = null;
 
-        g.fill(0, 0, this.width, this.height, 0x95000000);
-        ru.visual.client.module.impl.PepeBackground.draw(g, this.width - 120, this.height - 120, 112, 0.45);
-        Draw.textCentered(g, "Pepe Visual  |  ЛКМ - вкл/выкл  |  ПКМ - настройки и клавиша  |  наведи курсор, чтобы увидеть описание",
-                this.width / 2, 7, 0xFFCCCCCC);
+        g.fillGradient(0, 0, this.width, this.height, ((int) (0x70 * e) << 24) | 0x0A0614, ((int) (0xA8 * e) << 24) | 0x040208);
+
+        scale = 0.92f + 0.08f * e;
+        offY = (1f - e) * 12f;
+        int lmx = (int) Math.floor(localX(mouseX)), lmy = (int) Math.floor(localY(mouseY));
+
+        Draw.noShadow = true;
+        try {
+            g.pose().pushMatrix();
+            g.pose().translate(this.width / 2f, this.height / 2f + offY);
+            g.pose().scale(scale, scale);
+            g.pose().translate(-this.width / 2f, -this.height / 2f);
+            drawWindow(g, lmx, lmy, now);
+            g.pose().popMatrix();
+            if (tooltip != null) drawTooltip(g, mouseX, mouseY);
+        } finally {
+            Draw.noShadow = false;
+        }
+    }
+
+    private void drawWindow(GuiGraphics g, int mx, int my, long now) {
+        int accent = Draw.accent();
+        int W = Math.min(this.width - 16, 600), H = Math.min(this.height - 16, 370);
+        int x0 = (this.width - W) / 2, y0 = (this.height - H) / 2;
+        int x1 = x0 + W, y1 = y0 + H;
+
+        // тень и мягкое свечение цветом темы
+        Draw.shadow(g, x0, y0, x1, y1, 16, 0xA0000000);
+        Draw.shadow(g, x0, y0, x1, y1, 8, Draw.withAlpha(accent, 0x28));
+        Draw.round(g, x0, y0, x1, y1, 9, C_WINDOW);
+        Draw.roundGradient(g, x0, y0, x1, y0 + TOP, 9, Draw.withAlpha(accent, 0x30), 0x00000000);
+        hLine(g, x0 + 10, x1 - 10, y0 + TOP - 1, accent);
+
+        // ----- шапка: название слева, лягушонок ровно по центру, поиск справа
+        Draw.textBold(g, "Pepe", x0 + 12, y0 + 12, accent);
+        Draw.text(g, " Visual", x0 + 12 + Draw.widthBold("Pepe"), y0 + 12, C_TEXT);
+
+        int cx = (x0 + x1) / 2;
+        int bob = (int) Math.round(Math.sin(now / 520.0) * 1.5);
+        Draw.shadow(g, cx - 5, y0 + 11, cx + 5, y0 + 21, 12, Draw.withAlpha(accent, 0x55));
+        PepeBackground.draw(g, cx - 14, y0 + 2 + bob, 28, 1.0);
+
+        int sw = Math.min(140, W / 4), sx2 = x1 - 10, sx1 = sx2 - sw, sy1 = y0 + 8, sy2 = y0 + 24;
+        boolean sHover = in(mx, my, sx1, sy1, sx2, sy2);
+        Draw.round(g, sx1, sy1, sx2, sy2, 6, sHover ? 0xFF30303F : C_FIELD);
+        if (!search.isEmpty()) Draw.roundOutline(g, sx1, sy1, sx2, sy2, 6, Draw.withAlpha(accent, 0xA0));
+        if (search.isEmpty()) {
+            Draw.text(g, "Поиск...", sx1 + 7, sy1 + 4, C_DIM);
+        } else {
+            String shown = search;
+            while (shown.length() > 1 && Draw.width(shown) > sw - 18) shown = shown.substring(1);
+            Draw.text(g, shown, sx1 + 7, sy1 + 4, C_TEXT);
+            if ((now / 500) % 2 == 0) g.fill(sx1 + 8 + Draw.width(shown), sy1 + 3, sx1 + 9 + Draw.width(shown), sy2 - 3, C_TEXT);
+        }
+        hits.add(new Hit(sx1, sy1, sx2, sy2, null, () -> search = "", null));
+        if (sHover) tooltip = "Просто начни печатать - поиск по названию и описанию всех функций. ПКМ или Esc - очистить.";
+
+        // ----- боковая панель с разделами
+        int sbW = W >= 480 ? 122 : 96;
+        int sbX1 = x0 + 6, sbX2 = x0 + sbW, sbY1 = y0 + TOP + 6, sbY2 = y1 - 6;
+        Draw.round(g, sbX1, sbY1, sbX2, sbY2, 7, C_SIDEBAR);
 
         Category[] cats = Category.values();
-        pw = Math.max(88, Math.min(132, (this.width - 16 - (cats.length - 1) * GAP) / cats.length));
-        int total = cats.length * pw + (cats.length - 1) * GAP;
-        int x0 = (this.width - total) / 2;
-        int top = 22;
-        int panelMax = this.height - top - 34;
+        int btnH = 16, buttonsH = btnH * 2 + 4 + 8;
+        int tabH = Mth.clamp((sbY2 - sbY1 - 8 - buttonsH) / cats.length, 14, 22);
+        int ty0 = sbY1 + 5;
+        int selIndex = -1;
+        for (int i = 0; i < cats.length; i++) if (cats[i] == selected) selIndex = i;
+        float target = ty0 + selIndex * tabH;
+        tabY = Float.isNaN(tabY) ? target : approach(tabY, target, 16f);
+        int iy = Math.round(tabY);
+        boolean searching = !search.isEmpty();
+        Draw.round(g, sbX1 + 4, iy, sbX2 - 4, iy + tabH - 2, 5, Draw.withAlpha(accent, searching ? 0x18 : 0x40));
+        Draw.round(g, sbX1 + 4, iy + 4, sbX1 + 6, iy + tabH - 6, 1, searching ? C_DIM : accent);
+
         for (int i = 0; i < cats.length; i++) {
-            drawPanel(g, cats[i], x0 + i * (pw + GAP), top, panelMax, mouseX, mouseY);
+            Category c = cats[i];
+            int ty = ty0 + i * tabH;
+            boolean hov = in(mx, my, sbX1 + 4, ty, sbX2 - 4, ty + tabH - 2);
+            if (hov && c != selected) Draw.round(g, sbX1 + 4, ty, sbX2 - 4, ty + tabH - 2, 5, 0x14FFFFFF);
+            List<Module> mods = ModuleManager.byCategory(c);
+            int on = 0;
+            for (Module m : mods) if (m.isEnabled()) on++;
+            int textY = ty + (tabH - 2 - 8) / 2;
+            String count = on + "/" + mods.size();
+            Draw.text(g, Draw.trim(c.title, sbW - 30 - Draw.width(count)), sbX1 + 11, textY, c == selected && !searching ? C_TEXT : 0xFFA4A4B4);
+            Draw.textRight(g, count, sbX2 - 9, textY, on > 0 ? Draw.withAlpha(accent, 0xE0) : C_DIM);
+            final Category fc = c;
+            hits.add(new Hit(sbX1 + 4, ty, sbX2 - 4, ty + tabH - 2, () -> {
+                selected = fc;
+                search = "";
+            }, null, null));
         }
 
-        int bw = 130, bh = 16, by = this.height - 24;
-        bottomButton(g, this.width / 2 - bw - 4, by, bw, bh, mouseX, mouseY, "Оффлайн-аккаунты",
-                "Открыть меню оффлайн-аккаунтов: сменить ник, добавить или удалить аккаунт.",
+        int by = sbY2 - 6 - btnH * 2 - 4;
+        sideButton(g, sbX1 + 4, by, sbX2 - 4, by + btnH, mx, my, "Аккаунты",
+                "Оффлайн-аккаунты: сменить ник, добавить или удалить аккаунт.",
                 () -> this.minecraft.setScreen(new AccountScreen(this)));
-        bottomButton(g, this.width / 2 + 4, by, bw, bh, mouseX, mouseY, "Редактор HUD",
+        sideButton(g, sbX1 + 4, by + btnH + 4, sbX2 - 4, by + btnH * 2 + 4, mx, my, "Редактор HUD",
                 "Двигать элементы HUD мышью прямо на экране (ПКМ по элементу - сбросить позицию).",
                 () -> {
                     Config.save();
                     this.minecraft.setScreen(new HudEditorScreen(this));
                 });
 
-        if (tooltip != null) drawTooltip(g, mouseX, mouseY);
+        // ----- карточки функций
+        contentX1 = sbX2 + 8;
+        contentX2 = x1 - 8;
+        contentY1 = y0 + TOP + 6;
+        contentY2 = y1 - 18;
+        String hint = binding != null ? "Нажми клавишу для " + binding.name + "   Esc - отмена   Delete - сбросить"
+                : "ЛКМ - вкл/выкл   ПКМ - настройки   колёсико - прокрутка   печатай - поиск";
+        Draw.text(g, Draw.trim(hint, contentX2 - contentX1), contentX1 + 2, y1 - 13, binding != null ? 0xFFFFE070 : C_DIM);
+
+        List<Module> mods = new ArrayList<>();
+        if (searching) {
+            String q = search.toLowerCase(Locale.ROOT);
+            for (Module m : ModuleManager.MODULES) {
+                if (m.name.toLowerCase(Locale.ROOT).contains(q) || m.description.toLowerCase(Locale.ROOT).contains(q)) mods.add(m);
+            }
+        } else {
+            mods.addAll(ModuleManager.byCategory(selected));
+        }
+
+        int areaW = contentX2 - contentX1;
+        int cols = areaW >= 330 ? 2 : 1;
+        int cw = (areaW - GAP * (cols - 1)) / cols;
+
+        // анимации и высоты
+        int[] colH = new int[cols];
+        int[] cardX = new int[mods.size()], cardY = new int[mods.size()], cardH = new int[mods.size()];
+        for (int i = 0; i < mods.size(); i++) {
+            Module m = mods.get(i);
+            float[] a = anim.computeIfAbsent(m, k -> new float[]{k.isEnabled() ? 1 : 0, 0, expanded.contains(k) ? 1 : 0});
+            a[0] = approach(a[0], m.isEnabled() ? 1 : 0, 14f);
+            a[2] = approach(a[2], expanded.contains(m) ? 1 : 0, 12f);
+            if (Math.abs(a[2] - (expanded.contains(m) ? 1 : 0)) < 0.004f) a[2] = expanded.contains(m) ? 1 : 0;
+            int h = HEAD + Math.round(settingsHeight(m) * a[2]);
+            int c = i % cols; // постоянная колонка: при раскрытии настроек карточки не прыгают между колонками
+            cardX[i] = contentX1 + c * (cw + GAP);
+            cardY[i] = colH[c];
+            cardH[i] = h;
+            colH[c] += h + GAP;
+        }
+        int total = 0;
+        for (int v : colH) total = Math.max(total, v - GAP);
+        String key = searching ? "#search" : selected.name();
+        float[] sc = scroll.computeIfAbsent(key, k -> new float[2]);
+        int maxScroll = Math.max(0, total - (contentY2 - contentY1));
+        sc[1] = Mth.clamp(sc[1], 0, maxScroll);
+        sc[0] = approach(sc[0], sc[1], 16f);
+        int off = Math.round(sc[0]);
+
+        g.enableScissor(contentX1 - 2, contentY1, contentX2 + 2, contentY2);
+        for (int i = 0; i < mods.size(); i++) {
+            int y = contentY1 + cardY[i] - off;
+            if (y > contentY2 || y + cardH[i] < contentY1) continue;
+            drawCard(g, mods.get(i), cardX[i], y, cw, cardH[i], mx, my, accent);
+        }
+        if (mods.isEmpty()) {
+            Draw.textCentered(g, searching ? "Ничего не найдено" : "Пусто", (contentX1 + contentX2) / 2, (contentY1 + contentY2) / 2, C_DIM);
+        }
+        g.disableScissor();
+
+        // полоса прокрутки и затухание краёв
+        if (maxScroll > 0) {
+            int trackH = contentY2 - contentY1;
+            int barH = Math.max(18, trackH * trackH / (total));
+            int barY = contentY1 + (int) ((trackH - barH) * (sc[0] / maxScroll));
+            Draw.round(g, x1 - 5, barY, x1 - 3, barY + barH, 1, Draw.withAlpha(accent, 0x90));
+            if (off > 1) g.fillGradient(contentX1, contentY1, contentX2, contentY1 + 8, C_WINDOW, 0x00111118);
+            if (off < maxScroll - 1) g.fillGradient(contentX1, contentY2 - 8, contentX2, contentY2, 0x00111118, C_WINDOW);
+        }
     }
 
-    private void bottomButton(GuiGraphics g, int bx, int by, int bw, int bh, int mouseX, int mouseY, String label, String tip, Runnable action) {
-        boolean hov = mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + bh;
-        Draw.rect(g, bx, by, bx + bw, by + bh, hov ? Draw.shade(Draw.accent(), 0.6f) : Draw.shade(Draw.accent(), 0.4f));
-        Draw.textCentered(g, label, bx + bw / 2, by + 4, Draw.WHITE);
-        hits.add(new Hit(bx, by, bx + bw, by + bh, action, null, null));
+    private void sideButton(GuiGraphics g, int bx1, int by1, int bx2, int by2, int mx, int my, String label, String tip, Runnable action) {
+        boolean hov = in(mx, my, bx1, by1, bx2, by2);
+        int accent = Draw.accent();
+        Draw.round(g, bx1, by1, bx2, by2, 5, hov ? Draw.withAlpha(accent, 0x70) : Draw.withAlpha(accent, 0x30));
+        Draw.textCentered(g, label, (bx1 + bx2) / 2, by1 + (by2 - by1 - 8) / 2, C_TEXT);
+        hits.add(new Hit(bx1, by1, bx2, by2, action, null, null));
         if (hov) tooltip = tip;
     }
 
-    private void drawPanel(GuiGraphics g, Category cat, int x, int top, int panelMax, int mx, int my) {
-        List<Module> mods = ModuleManager.byCategory(cat);
-        int content = 0;
-        for (Module m : mods) {
-            content += ROW;
-            if (expanded.contains(m)) content += (m.settings.size() + 1) * ROW;
+    private static int rowHeight(Setting<?> s) {
+        return s instanceof NumSetting || s instanceof ColorSetting ? ROW_TALL : ROW;
+    }
+
+    private static int settingsHeight(Module m) {
+        int h = ROW + 6; // строка клавиши + отступы
+        for (Setting<?> s : m.settings) h += rowHeight(s);
+        return h;
+    }
+
+    private void drawCard(GuiGraphics g, Module m, int x, int y, int w, int h, int mx, int my, int accent) {
+        float[] a = anim.get(m);
+        boolean headHover = in(mx, my, x, y, x + w, y + HEAD) && my >= contentY1 && my < contentY2;
+        a[1] = approach(a[1], headHover ? 1 : 0, 18f);
+
+        int bg = Draw.mix(C_CARD, C_CARD_HOVER, a[1]);
+        bg = Draw.mix(bg, accent | 0xFF000000, 0.12f * a[0]);
+        Draw.round(g, x, y, x + w, y + h, 7, bg);
+        if (a[0] > 0.02f) Draw.roundOutline(g, x, y, x + w, y + h, 7, Draw.withAlpha(accent, (int) (0x90 * a[0])));
+
+        // название и описание
+        int nameColor = Draw.mix(0xFFB8B8C8, 0xFFFFFFFF, a[0]);
+        Draw.textBold(g, Draw.trim(m.name, w - 46), x + 9, y + 6, nameColor);
+        String desc = Draw.trim(m.description, w - 46);
+        Draw.text(g, desc, x + 9, y + 17, C_MUTED);
+
+        // переключатель
+        int swX = x + w - 32, swY = y + 9;
+        Draw.round(g, swX, swY, swX + 22, swY + 12, 6, Draw.mix(0xFF3A3A4A, accent | 0xFF000000, a[0]));
+        int knob = swX + 2 + Math.round(10 * a[0]);
+        Draw.circle(g, knob, swY + 2, 8, 0xFFFFFFFF);
+
+        if (headHover) {
+            tooltip = (desc.equals(m.description) ? "" : m.description + "\n") + (expanded.contains(m) ? "ПКМ - свернуть настройки" : "ПКМ - настройки и клавиша");
         }
-        int visible = Math.min(content, panelMax - HEAD);
-        int maxScroll = Math.max(0, content - visible);
-        int sc = Math.max(0, Math.min(scroll.getOrDefault(cat, 0), maxScroll));
-        scroll.put(cat, sc);
+        hits.add(new Hit(x, Math.max(y, contentY1), x + w, Math.min(y + HEAD, contentY2), m::toggle, () -> {
+            if (!expanded.remove(m)) expanded.add(m);
+        }, null));
 
-        int clipTop = top + HEAD, clipBottom = top + HEAD + visible;
-        panelRects.put(cat, new int[]{x, top, x + pw, clipBottom});
+        if (a[2] <= 0.01f) return;
 
-        Draw.rect(g, x, top, x + pw, clipTop, Draw.shade(Draw.accent(), 0.45f));
-        Draw.rect(g, x, top, x + pw, top + 1, Draw.accent());
-        Draw.textCentered(g, cat.title, x + pw / 2, top + 4, Draw.WHITE);
-        Draw.rect(g, x, clipTop, x + pw, clipBottom, 0xE0141420);
+        // ----- настройки (раскрываются плавно)
+        int cardBottom = y + h;
+        g.enableScissor(x, y + HEAD - 1, x + w, cardBottom);
+        g.fill(x + 8, y + HEAD - 1, x + w - 8, y + HEAD, 0x16FFFFFF);
+        int rx1 = x + 10, rx2 = x + w - 10;
+        int ry = y + HEAD + 2;
 
-        g.enableScissor(x, clipTop, x + pw, clipBottom);
-        int y = clipTop - sc;
-        for (Module m : mods) {
-            boolean vis = y + ROW > clipTop && y < clipBottom;
-            boolean hover = inside(vis, mx, my, x, y, clipTop, clipBottom);
-            if (m.isEnabled()) Draw.rect(g, x, y, x + pw, y + ROW, Draw.shade(Draw.accent(), 0.7f));
-            else if (hover) Draw.rect(g, x, y, x + pw, y + ROW, 0xFF26263A);
-            Draw.text(g, trim(m.name, pw - 22), x + 5, y + 3, m.isEnabled() ? Draw.WHITE : 0xFFB0B0B8);
-            Draw.textRight(g, expanded.contains(m) ? "-" : "+", x + pw - 5, y + 3, 0xFF9A9AA8);
-            if (vis) {
-                final Module fm = m;
-                hits.add(new Hit(x, Math.max(y, clipTop), x + pw, Math.min(y + ROW, clipBottom),
-                        m::toggle, () -> toggleExpanded(fm), null));
+        // клавиша
+        {
+            boolean hov = rowHover(mx, my, x, ry, w, ROW, cardBottom);
+            if (hov) Draw.round(g, x + 4, ry, x + w - 4, ry + ROW, 4, 0x10FFFFFF);
+            String keyName = binding == m ? "..." : ModuleManager.bindName(m);
+            int pw = Draw.width(keyName) + 12;
+            Draw.text(g, "Клавиша", rx1, ry + 4, C_TEXT);
+            Draw.round(g, rx2 - pw, ry + 2, rx2, ry + ROW - 2, 4, binding == m ? Draw.withAlpha(accent, 0xB0) : C_FIELD);
+            Draw.textCentered(g, keyName, rx2 - pw / 2, ry + 4, binding == m ? 0xFFFFFFFF : 0xFFD0D0E0);
+            if (rowVisible(ry, ROW, cardBottom)) {
+                hits.add(new Hit(x, ry, x + w, ry + ROW, () -> binding = m, () -> ModuleManager.setBind(m, -1), null));
             }
-            if (hover) tooltip = m.description + " [ПКМ - настройки]";
-            y += ROW;
+            if (hov) tooltip = "Клавиша быстрого включения. ЛКМ - назначить (затем нажми клавишу, Esc - отмена), ПКМ или Delete - сбросить.";
+            ry += ROW;
+        }
 
-            if (!expanded.contains(m)) continue;
+        for (Setting<?> s : m.settings) {
+            int rh = rowHeight(s);
+            boolean hov = rowHover(mx, my, x, ry, w, rh, cardBottom);
+            boolean vis = rowVisible(ry, rh, cardBottom);
+            if (hov) Draw.round(g, x + 4, ry, x + w - 4, ry + rh, 4, 0x10FFFFFF);
+            float[] sa = setAnim.computeIfAbsent(s, k -> new float[]{k instanceof BoolSetting b && b.get() ? 1 : 0});
 
-            // строка назначения клавиши
-            {
-                boolean svis = y + ROW > clipTop && y < clipBottom;
-                boolean shover = inside(svis, mx, my, x, y, clipTop, clipBottom);
-                Draw.rect(g, x, y, x + pw, y + ROW, 0xFF1C1C2C);
-                Draw.rect(g, x, y, x + 2, y + ROW, Draw.accent());
-                String label = binding == m ? "Нажми клавишу..." : "Клавиша: " + ModuleManager.bindName(m);
-                Draw.text(g, trim(label, pw - 10), x + 6, y + 3, binding == m ? 0xFFFFE070 : 0xFFD0D0E0);
-                if (svis) {
-                    final Module fm = m;
-                    hits.add(new Hit(x, Math.max(y, clipTop), x + pw, Math.min(y + ROW, clipBottom),
-                            () -> binding = fm, () -> ModuleManager.setBind(fm, -1), null));
+            if (s instanceof BoolSetting b) {
+                sa[0] = approach(sa[0], b.get() ? 1 : 0, 16f);
+                Draw.text(g, Draw.trim(b.name, rx2 - rx1 - 24), rx1, ry + 4, Draw.mix(C_MUTED, C_TEXT, sa[0]));
+                int tx = rx2 - 16, tyy = ry + 4;
+                Draw.round(g, tx, tyy, tx + 16, tyy + 8, 4, Draw.mix(0xFF3A3A4A, accent | 0xFF000000, sa[0]));
+                Draw.circle(g, tx + 1 + Math.round(8 * sa[0]), tyy + 1, 6, 0xFFFFFFFF);
+                if (vis) hits.add(new Hit(x, ry, x + w, ry + rh, b::toggle, null, null));
+            } else if (s instanceof NumSetting n) {
+                float f = (float) ((n.get() - n.min) / (n.max - n.min));
+                sa[0] = approach(sa[0], f, 20f);
+                String val = n.display();
+                Draw.text(g, Draw.trim(n.name, rx2 - rx1 - Draw.width(val) - 8), rx1, ry + 3, C_TEXT);
+                Draw.textRight(g, val, rx2, ry + 3, Draw.mix(accent | 0xFF000000, 0xFFFFFFFF, 0.45f));
+                int ty1 = ry + 15;
+                Draw.round(g, rx1, ty1, rx2, ty1 + 3, 1, C_FIELD);
+                int fx = rx1 + Math.round((rx2 - rx1) * sa[0]);
+                Draw.round(g, rx1, ty1, Math.max(rx1 + 2, fx), ty1 + 3, 1, accent | 0xFF000000);
+                if (hov) Draw.circle(g, fx - 5, ty1 - 3, 10, Draw.withAlpha(accent, 0x50));
+                Draw.circle(g, fx - 3, ty1 - 1, 6, 0xFFFFFFFF);
+                if (vis) {
+                    final int a1 = rx1, a2 = rx2;
+                    Drag d = mouseX -> {
+                        double k = Mth.clamp((mouseX - a1) / (double) (a2 - a1), 0, 1);
+                        n.set(n.min + k * (n.max - n.min));
+                    };
+                    hits.add(new Hit(x, ry, x + w, ry + rh, null, null, d));
                 }
-                if (shover) tooltip = "Клавиша быстрого включения функции. ЛКМ - назначить (затем нажми клавишу, Esc - отмена), ПКМ или Delete - сбросить.";
-                y += ROW;
+            } else if (s instanceof ModeSetting md) {
+                String val = md.get();
+                int pw = Math.min(Draw.width(val) + 12, (rx2 - rx1) / 2 + 20);
+                String shown = Draw.trim(val, pw - 10);
+                Draw.text(g, Draw.trim(md.name, rx2 - rx1 - pw - 6), rx1, ry + 4, C_TEXT);
+                Draw.round(g, rx2 - pw, ry + 2, rx2, ry + rh - 2, 4, Draw.withAlpha(accent, hov ? 0x60 : 0x38));
+                Draw.textCentered(g, shown, rx2 - pw / 2, ry + 4, 0xFFFFFFFF);
+                if (vis) hits.add(new Hit(x, ry, x + w, ry + rh, () -> md.cycle(1), () -> md.cycle(-1), null));
+            } else if (s instanceof ColorSetting c) {
+                Draw.text(g, Draw.trim(c.name, rx2 - rx1 - 16), rx1, ry + 3, C_TEXT);
+                Draw.circle(g, rx2 - 9, ry + 2, 9, c.argb() | 0xFF000000);
+                int sy1 = ry + 15, sy2 = ry + 19;
+                int segs = 32;
+                for (int k = 0; k < segs; k++) {
+                    int xa = rx1 + (rx2 - rx1) * k / segs, xb = rx1 + (rx2 - rx1) * (k + 1) / segs;
+                    float ff = k / (float) segs;
+                    int col;
+                    if (c.rainbow) col = Draw.rainbow(0.3, ff);
+                    else if (k == 0) col = 0xFFFFFFFF;
+                    else col = 0xFF000000 | Mth.hsvToRgb((ff - 0.04f) / 0.96f, 0.8f, 1f);
+                    g.fill(xa, sy1, xb, sy2, col);
+                }
+                if (!c.rainbow) {
+                    double pos = c.sat < 0.05 ? 0.0 : 0.04 + c.hue * 0.96;
+                    int mxp = rx1 + (int) ((rx2 - rx1) * pos);
+                    Draw.circle(g, mxp - 3, sy1 - 1, 6, 0xFFFFFFFF);
+                }
+                if (vis) {
+                    final int a1 = rx1, a2 = rx2;
+                    Drag d = mouseX -> {
+                        double k = Mth.clamp((mouseX - a1) / (double) (a2 - a1), 0, 1);
+                        c.rainbow = false;
+                        if (k < 0.04) {
+                            c.sat = 0f;
+                            c.bri = 1f;
+                        } else {
+                            c.sat = 0.8f;
+                            c.bri = 1f;
+                            c.hue = (float) ((k - 0.04) / 0.96);
+                        }
+                    };
+                    hits.add(new Hit(x, ry, x + w, ry + rh, null, () -> c.rainbow = !c.rainbow, d));
+                }
             }
-
-            for (Setting<?> s : m.settings) {
-                boolean svis = y + ROW > clipTop && y < clipBottom;
-                boolean shover = inside(svis, mx, my, x, y, clipTop, clipBottom);
-                int hy1 = Math.max(y, clipTop), hy2 = Math.min(y + ROW, clipBottom);
-                Draw.rect(g, x, y, x + pw, y + ROW, 0xFF1C1C2C);
-                Draw.rect(g, x, y, x + 2, y + ROW, Draw.accent());
-                if (s instanceof BoolSetting b) {
-                    Draw.text(g, trim(b.name, pw - 24), x + 6, y + 3, b.get() ? Draw.WHITE : 0xFF9A9AA8);
-                    int bx = x + pw - 14;
-                    Draw.outline(g, bx, y + 3, bx + 8, y + 11, 0xFF9A9AA8);
-                    if (b.get()) Draw.rect(g, bx + 2, y + 5, bx + 6, y + 9, Draw.accent());
-                    if (svis) hits.add(new Hit(x, hy1, x + pw, hy2, b::toggle, null, null));
-                } else if (s instanceof NumSetting n) {
-                    double f = (n.get() - n.min) / (n.max - n.min);
-                    Draw.rect(g, x + 2, y, x + 2 + (int) ((pw - 2) * f), y + ROW, Draw.shade(Draw.accent(), 0.55f));
-                    Draw.text(g, trim(n.name, pw - 40), x + 6, y + 3, Draw.WHITE);
-                    Draw.textRight(g, n.display(), x + pw - 4, y + 3, 0xFFD8D0FF);
-                    if (svis) {
-                        Drag d = (mouseX, x1, x2) -> {
-                            // Полоса рисуется от x1 + 2 до x2 - те же границы, что и при отрисовке
-                            double k = Mth.clamp((mouseX - (x1 + 2)) / (double) (x2 - x1 - 2), 0, 1);
-                            n.set(n.min + k * (n.max - n.min));
-                        };
-                        hits.add(new Hit(x, hy1, x + pw, hy2, null, null, d));
-                    }
-                } else if (s instanceof ModeSetting md) {
-                    Draw.text(g, trim(md.name + ": " + md.get(), pw - 12), x + 6, y + 3, Draw.WHITE);
-                    if (svis) {
-                        hits.add(new Hit(x, hy1, x + pw, hy2, () -> md.cycle(1), () -> md.cycle(-1), null));
-                    }
-                } else if (s instanceof ColorSetting c) {
-                    Draw.text(g, trim(c.name, pw - 12), x + 6, y + 1, Draw.WHITE);
-                    int sx1 = x + 4, sx2 = x + pw - 4, sy1 = y + 10, sy2 = y + 13;
-                    int segs = 24;
-                    for (int k = 0; k < segs; k++) {
-                        int a = sx1 + (sx2 - sx1) * k / segs, b = sx1 + (sx2 - sx1) * (k + 1) / segs;
-                        float f = k / (float) segs;
-                        int col;
-                        if (c.rainbow) col = Draw.rainbow(0.3, f);
-                        else if (k == 0) col = 0xFFFFFFFF;
-                        else col = 0xFF000000 | Mth.hsvToRgb((f - 0.04f) / 0.96f, 0.8f, 1f);
-                        Draw.rect(g, a, sy1, b, sy2, col);
-                    }
-                    if (!c.rainbow) {
-                        double pos = c.sat < 0.05 ? 0.0 : 0.04 + c.hue * 0.96;
-                        int mxp = sx1 + (int) ((sx2 - sx1) * pos);
-                        Draw.rect(g, mxp, sy1 - 2, mxp + 1, sy2 + 1, 0xFFFFFFFF);
-                    }
-                    if (svis) {
-                        Drag d = (mouseX, x1, x2) -> {
-                            double k = Mth.clamp((mouseX - (x1 + 4)) / (double) (x2 - x1 - 8), 0, 1);
-                            c.rainbow = false;
-                            if (k < 0.04) {
-                                c.sat = 0f;
-                                c.bri = 1f;
-                            } else {
-                                c.sat = 0.8f;
-                                c.bri = 1f;
-                                c.hue = (float) ((k - 0.04) / 0.96);
-                            }
-                        };
-                        hits.add(new Hit(x, hy1, x + pw, hy2, null, () -> c.rainbow = !c.rainbow, d));
-                    }
-                }
-                if (shover) {
-                    String extra = s instanceof ModeSetting ? " [ЛКМ/ПКМ - переключить]"
-                            : s instanceof ColorSetting ? " [тяни мышью, ПКМ - радуга]" : "";
-                    tooltip = s.description + extra;
-                }
-                y += ROW;
+            if (hov) {
+                String extra = s instanceof ModeSetting ? "\nЛКМ - следующий, ПКМ - предыдущий"
+                        : s instanceof ColorSetting ? "\nТяни мышью по полосе, ПКМ - радуга"
+                        : s instanceof NumSetting ? "\nЗажми и тяни" : "";
+                tooltip = s.description + extra;
             }
+            ry += rh;
         }
         g.disableScissor();
     }
 
-    private boolean inside(boolean vis, int mx, int my, int x, int y, int clipTop, int clipBottom) {
-        return vis && mx >= x && mx < x + pw && my >= Math.max(y, clipTop) && my < Math.min(y + ROW, clipBottom);
+    private boolean rowVisible(int ry, int rh, int cardBottom) {
+        return ry >= contentY1 && ry + rh <= contentY2 && ry + rh <= cardBottom;
     }
 
-    private String trim(String s, int maxWidth) {
-        if (Draw.width(s) <= maxWidth) return s;
-        while (s.length() > 1 && Draw.width(s + "..") > maxWidth) s = s.substring(0, s.length() - 1);
-        return s + "..";
+    private boolean rowHover(int mx, int my, int x, int ry, int w, int rh, int cardBottom) {
+        return rowVisible(ry, rh, cardBottom) && in(mx, my, x, ry, x + w, ry + rh);
     }
 
-    private void toggleExpanded(Module m) {
-        if (!expanded.remove(m)) expanded.add(m);
+    private static boolean in(int mx, int my, int x1, int y1, int x2, int y2) {
+        return mx >= x1 && mx < x2 && my >= y1 && my < y2;
+    }
+
+    /** Горизонтальная линия, затухающая к краям. */
+    private static void hLine(GuiGraphics g, int x1, int x2, int y, int color) {
+        int segs = 24;
+        for (int i = 0; i < segs; i++) {
+            float c = (i + 0.5f) / segs;
+            float alpha = 1f - Math.abs(c - 0.5f) * 2f;
+            int xa = x1 + (x2 - x1) * i / segs, xb = x1 + (x2 - x1) * (i + 1) / segs;
+            g.fill(xa, y, xb, y + 1, Draw.withAlpha(color, (int) (0xB0 * alpha)));
+        }
     }
 
     private void drawTooltip(GuiGraphics g, int mx, int my) {
-        List<FormattedCharSequence> lines = this.font.split(Component.literal(tooltip), 200);
+        List<FormattedCharSequence> lines = new ArrayList<>();
+        for (String part : tooltip.split("\n")) lines.addAll(this.font.split(Draw.comp(part), 210));
         int w = 0;
         for (FormattedCharSequence l : lines) w = Math.max(w, this.font.width(l));
         int h = lines.size() * 10;
-        int x = mx + 10, y = my + 12;
-        if (x + w + 8 > this.width) x = mx - w - 14;
-        if (y + h + 6 > this.height) y = my - h - 10;
-        Draw.rect(g, x - 3, y - 3, x + w + 4, y + h + 2, 0xF0100818);
-        Draw.outline(g, x - 3, y - 3, x + w + 4, y + h + 2, Draw.accent());
+        int x = mx + 12, y = my + 12;
+        if (x + w + 10 > this.width) x = mx - w - 14;
+        if (y + h + 8 > this.height) y = my - h - 10;
+        x = Math.max(4, x);
+        y = Math.max(4, y);
+        Draw.shadow(g, x - 5, y - 4, x + w + 5, y + h + 3, 8, 0x80000000);
+        Draw.round(g, x - 5, y - 4, x + w + 5, y + h + 3, 5, 0xF5181822);
+        Draw.roundOutline(g, x - 5, y - 4, x + w + 5, y + h + 3, 5, Draw.withAlpha(Draw.accent(), 0x90));
         int yy = y;
         for (FormattedCharSequence l : lines) {
-            g.drawString(this.font, l, x, yy, 0xFFFFFFFF);
+            g.drawString(this.font, l, x, yy, 0xFFFFFFFF, false);
             yy += 10;
         }
     }
 
+    // ---------------------------------------------------------------- ввод
+
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        double mx = event.x(), my = event.y();
+        double mx = localX(event.x()), my = localY(event.y());
         int button = event.button();
+        Module wasBinding = binding;
         binding = null;
         for (int i = hits.size() - 1; i >= 0; i--) {
             Hit h = hits.get(i);
@@ -270,9 +511,7 @@ public class ClickGuiScreen extends Screen {
                 if (button == 0) {
                     if (h.drag != null) {
                         dragging = h.drag;
-                        dragX1 = h.x1;
-                        dragX2 = h.x2;
-                        dragging.apply(mx, dragX1, dragX2);
+                        dragging.apply(mx);
                     } else if (h.left != null) {
                         h.left.run();
                     }
@@ -283,13 +522,14 @@ public class ClickGuiScreen extends Screen {
                 return true;
             }
         }
+        if (wasBinding != null) return true;
         return super.mouseClicked(event, doubleClick);
     }
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
         if (dragging != null) {
-            dragging.apply(event.x(), dragX1, dragX2);
+            dragging.apply(localX(event.x()));
             return true;
         }
         return super.mouseDragged(event, dx, dy);
@@ -297,26 +537,27 @@ public class ClickGuiScreen extends Screen {
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
+        if (dragging != null) ModuleManager.markDirty();
         dragging = null;
         return super.mouseReleased(event);
     }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double sx, double sy) {
-        for (Map.Entry<Category, int[]> e : panelRects.entrySet()) {
-            int[] r = e.getValue();
-            if (mx >= r[0] && mx < r[2] && my >= r[1] && my < r[3]) {
-                scroll.merge(e.getKey(), (int) (-sy * 14), Integer::sum);
-                return true;
-            }
+        double lx = localX(mx), ly = localY(my);
+        if (lx >= contentX1 - 4 && lx < contentX2 + 8 && ly >= contentY1 && ly < contentY2) {
+            String key = search.isEmpty() ? selected.name() : "#search";
+            scroll.computeIfAbsent(key, k -> new float[2])[1] -= (float) (sy * 28);
+            return true;
         }
         return super.mouseScrolled(mx, my, sx, sy);
     }
 
     @Override
     public boolean keyPressed(KeyEvent event) {
+        int k = event.key();
         if (binding != null) {
-            int k = event.key();
+            ignoreCharsUntil = System.currentTimeMillis() + 150; // символ этой же клавиши не должен попасть в поиск
             if (k == GLFW.GLFW_KEY_ESCAPE) {
                 binding = null;
             } else if (k == GLFW.GLFW_KEY_DELETE || k == GLFW.GLFW_KEY_BACKSPACE) {
@@ -328,7 +569,28 @@ public class ClickGuiScreen extends Screen {
             }
             return true;
         }
+        if (k == GLFW.GLFW_KEY_BACKSPACE && !search.isEmpty()) {
+            search = search.substring(0, search.length() - 1);
+            return true;
+        }
+        if (k == GLFW.GLFW_KEY_ESCAPE && !search.isEmpty()) {
+            search = "";
+            return true;
+        }
         return super.keyPressed(event);
+    }
+
+    @Override
+    public boolean charTyped(CharacterEvent event) {
+        if (System.currentTimeMillis() < ignoreCharsUntil) return true;
+        if (binding == null && event.isAllowedChatCharacter() && search.length() < 32) {
+            String ch = event.codepointAsString();
+            if (search.isEmpty() && ch.isBlank()) return true;
+            search += ch;
+            scroll.remove("#search");
+            return true;
+        }
+        return super.charTyped(event);
     }
 
     @Override

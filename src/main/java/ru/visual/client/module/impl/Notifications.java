@@ -56,8 +56,8 @@ public class Notifications extends HudModule implements Config.DefaultOn {
                 int tw = Draw.width(text) + 14;
                 int x2 = w - 4 + ox() + (int) (slide * (tw + 8));
                 int x1 = x2 - tw;
-                Draw.rect(g, x1, y, x2, y + 18, Draw.bg());
-                Draw.rect(g, x1, y, x1 + 2, y + 18, n.on() ? 0xFF55FF77 : 0xFFFF5555);
+                Draw.panel(g, x1, y, x2, y + 18, Draw.bg());
+                Draw.round(g, x1 + 2, y + 3, x1 + 4, y + 15, 1, n.on() ? 0xFF55FF77 : 0xFFFF5555);
                 // полоска оставшегося времени
                 double left = Math.max(0, 1 - (double) age / life);
                 Draw.rect(g, x1 + 2, y + 17, x1 + 2 + (int) ((tw - 2) * left), y + 18, Draw.accent());

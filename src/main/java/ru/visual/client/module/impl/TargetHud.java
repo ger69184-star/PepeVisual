@@ -49,8 +49,8 @@ public class TargetHud extends HudModule implements Config.DefaultOn {
         int pw = 150, ph = items.get() ? 62 : 40;
 
         bounds(x, y, x + pw, y + ph);
-        Draw.rect(g, x, y, x + pw, y + ph, Draw.bg());
-        Draw.rect(g, x, y, x + 2, y + ph, Draw.accent());
+        Draw.panel(g, x, y, x + pw, y + ph, Draw.bg());
+        Draw.round(g, x + 2, y + 4, x + 4, y + ph - 4, 1, Draw.accent());
 
         Draw.text(g, t.getName().getString(), x + 8, y + 5, Draw.WHITE);
         String hpText = String.format(java.util.Locale.ROOT, "%.1f", hp);

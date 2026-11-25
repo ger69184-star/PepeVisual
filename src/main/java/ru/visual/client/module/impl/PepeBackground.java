@@ -35,6 +35,8 @@ public class PepeBackground extends Module implements Config.DefaultOn {
         PepeBackground m = ModuleManager.pepe;
         Minecraft mc = Minecraft.getInstance();
         if (m == null || !m.isEnabled() || mc.player == null || mc.options.hideGui) return;
+        // В меню клиента свой лягушонок по центру шапки - второй (из HUD) там не нужен
+        if (mc.screen instanceof ru.visual.client.gui.ClickGuiScreen) return;
         int w = mc.getWindow().getGuiScaledWidth();
         int h = mc.getWindow().getGuiScaledHeight();
         int s = m.size.asInt();

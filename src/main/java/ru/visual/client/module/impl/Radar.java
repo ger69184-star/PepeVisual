@@ -28,8 +28,8 @@ public class Radar extends HudModule {
         int s = size.asInt();
         int x = 4 + ox(), y = 92 + oy();
         int cx = x + s / 2, cy = y + s / 2;
-        Draw.rect(g, x, y, x + s, y + s, Draw.bg());
-        Draw.outline(g, x, y, x + s, y + s, Draw.withAlpha(Draw.accent(), 160));
+        Draw.panel(g, x, y, x + s, y + s, Draw.bg());
+        Draw.roundOutline(g, x, y, x + s, y + s, Draw.r(), Draw.withAlpha(Draw.accent(), 160));
         Draw.rect(g, cx, y + 1, cx + 1, y + s - 1, 0x30FFFFFF);
         Draw.rect(g, x + 1, cy, x + s - 1, cy + 1, 0x30FFFFFF);
 

@@ -554,7 +554,7 @@ public class AutoBrew extends Module {
         for (String l : lines) w = Math.max(w, Draw.width(l));
         int sh = mc.getWindow().getGuiScaledHeight();
         int x = 4, y = sh - 40 - lines.size() * 10;
-        Draw.rect(g, x, y, x + w + 10, y + lines.size() * 10 + 4, Draw.bg());
+        Draw.panel(g, x, y, x + w + 10, y + lines.size() * 10 + 4, Draw.bg());
         Draw.rect(g, x, y, x + 2, y + lines.size() * 10 + 4, Draw.accent());
         for (int i = 0; i < lines.size(); i++) Draw.text(g, lines.get(i), x + 6, y + 3 + i * 10, cols.get(i));
     }

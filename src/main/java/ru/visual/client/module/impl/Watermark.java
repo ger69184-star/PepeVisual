@@ -22,8 +22,8 @@ public class Watermark extends HudModule implements Config.DefaultOn {
         String rest = stats.get() ? "  |  " + mc.getUser().getName() + "  |  " + mc.getFps() + " fps  |  " + PlayerUtil.ping(mc) + " ms" : "";
         int x = 4 + ox(), y = 4 + oy();
         int w = Draw.width(title) + Draw.width(rest) + 8;
-        Draw.rect(g, x, y, x + w, y + 13, Draw.bg());
-        Draw.rect(g, x, y, x + w, y + 1, Draw.bar(0));
+        Draw.panel(g, x, y, x + w, y + 13, Draw.bg());
+        Draw.rect(g, x + Draw.r(), y, x + w - Draw.r(), y + 1, Draw.bar(0));
         Draw.text(g, title, x + 4, y + 3, Draw.accent());
         Draw.text(g, rest, x + 4 + Draw.width(title), y + 3, Draw.GRAY);
     }

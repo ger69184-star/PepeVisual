@@ -338,7 +338,7 @@ public class ChestSorter extends Module {
             int sw = mc.getWindow().getGuiScaledWidth();
             String s = "ChestSorter: " + status + (queue.isEmpty() ? "" : " (" + queue.size() + ")");
             int w = Draw.width(s) + 10;
-            Draw.rect(g, sw / 2 - w / 2, 4, sw / 2 + w / 2, 17, Draw.bg());
+            Draw.panel(g, sw / 2 - w / 2, 4, sw / 2 + w / 2, 17, Draw.bg());
             Draw.textCentered(g, s, sw / 2, 7, Draw.accent());
         }
     }

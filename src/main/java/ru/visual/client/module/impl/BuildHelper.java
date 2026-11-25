@@ -614,7 +614,7 @@ public class BuildHelper extends Module {
         for (String s : lines) w = Math.max(w, Draw.width(s));
         int x = 4 + panelX.asInt(), y = 120 + panelY.asInt();
         int h = lines.size() * 10 + 6 + (stage == Stage.BUILD ? 5 : 0);
-        Draw.rect(g, x, y, x + w + 12, y + h, Draw.bg());
+        Draw.panel(g, x, y, x + w + 12, y + h, Draw.bg());
         Draw.rect(g, x, y, x + 2, y + h, Draw.accent());
         int yy = y + 4;
         for (int i = 0; i < lines.size(); i++) {
