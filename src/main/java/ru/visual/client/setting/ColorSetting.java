@@ -26,6 +26,12 @@ public class ColorSetting extends Setting<Integer> {
         bri = max;
     }
 
+    /** Текущий цвет ARGB (раньше возвращалось значение из конструктора и не менялось). */
+    @Override
+    public Integer get() {
+        return argb();
+    }
+
     public int argb() {
         if (rainbow) return Draw.rainbow(0.2, 0);
         return 0xFF000000 | Mth.hsvToRgb(hue, sat, bri);

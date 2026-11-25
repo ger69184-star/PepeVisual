@@ -75,14 +75,26 @@ public class ClickGuiScreen extends Screen {
             drawPanel(g, cats[i], x0 + i * (pw + GAP), top, panelMax, mouseX, mouseY);
         }
 
-        int bw = 150, bh = 16, bx = this.width / 2 - bw / 2, by = this.height - 24;
-        boolean hov = mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + bh;
-        Draw.rect(g, bx, by, bx + bw, by + bh, hov ? Draw.shade(Draw.accent(), 0.6f) : Draw.shade(Draw.accent(), 0.4f));
-        Draw.textCentered(g, "Оффлайн-аккаунты", this.width / 2, by + 4, Draw.WHITE);
-        hits.add(new Hit(bx, by, bx + bw, by + bh, () -> this.minecraft.setScreen(new AccountScreen(this)), null, null));
-        if (hov) tooltip = "Открыть меню оффлайн-аккаунтов: сменить ник, добавить или удалить аккаунт.";
+        int bw = 130, bh = 16, by = this.height - 24;
+        bottomButton(g, this.width / 2 - bw - 4, by, bw, bh, mouseX, mouseY, "Оффлайн-аккаунты",
+                "Открыть меню оффлайн-аккаунтов: сменить ник, добавить или удалить аккаунт.",
+                () -> this.minecraft.setScreen(new AccountScreen(this)));
+        bottomButton(g, this.width / 2 + 4, by, bw, bh, mouseX, mouseY, "Редактор HUD",
+                "Двигать элементы HUD мышью прямо на экране (ПКМ по элементу - сбросить позицию).",
+                () -> {
+                    Config.save();
+                    this.minecraft.setScreen(new HudEditorScreen(this));
+                });
 
         if (tooltip != null) drawTooltip(g, mouseX, mouseY);
+    }
+
+    private void bottomButton(GuiGraphics g, int bx, int by, int bw, int bh, int mouseX, int mouseY, String label, String tip, Runnable action) {
+        boolean hov = mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + bh;
+        Draw.rect(g, bx, by, bx + bw, by + bh, hov ? Draw.shade(Draw.accent(), 0.6f) : Draw.shade(Draw.accent(), 0.4f));
+        Draw.textCentered(g, label, bx + bw / 2, by + 4, Draw.WHITE);
+        hits.add(new Hit(bx, by, bx + bw, by + bh, action, null, null));
+        if (hov) tooltip = tip;
     }
 
     private void drawPanel(GuiGraphics g, Category cat, int x, int top, int panelMax, int mx, int my) {
@@ -160,7 +172,8 @@ public class ClickGuiScreen extends Screen {
                     Draw.textRight(g, n.display(), x + pw - 4, y + 3, 0xFFD8D0FF);
                     if (svis) {
                         Drag d = (mouseX, x1, x2) -> {
-                            double k = Mth.clamp((mouseX - x1) / (double) (x2 - x1), 0, 1);
+                            // Полоса рисуется от x1 + 2 до x2 - те же границы, что и при отрисовке
+                            double k = Mth.clamp((mouseX - (x1 + 2)) / (double) (x2 - x1 - 2), 0, 1);
                             n.set(n.min + k * (n.max - n.min));
                         };
                         hits.add(new Hit(x, hy1, x + pw, hy2, null, null, d));

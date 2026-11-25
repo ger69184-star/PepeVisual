@@ -10,6 +10,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.AttachedStemBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.NetherWartBlock;
@@ -29,14 +30,17 @@ import java.util.Map;
 public class AutoFarm extends Module {
     private final BoolSetting crops = add(new BoolSetting("Злаки и овощи", "Собирать созревшую пшеницу, морковь, картошку и свёклу.", true));
     private final BoolSetting wart = add(new BoolSetting("Незер-бородавка", "Собирать созревшую незер-бородавку.", true));
-    private final BoolSetting fruits = add(new BoolSetting("Тыквы и арбузы", "Ломать тыквы и арбузы (поставленные декоративные тоже!).", false));
+    private final BoolSetting fruits = add(new BoolSetting("Тыквы и арбузы", "Ломать тыквы и арбузы, выросшие от стебля (декоративные не трогает).", false));
     private final BoolSetting cane = add(new BoolSetting("Тростник и кактус", "Ломать сахарный тростник и кактус, оставляя нижний блок.", false));
     private final BoolSetting replant = add(new BoolSetting("Пересаживать", "Сажать семена обратно. Семена должны лежать в хотбаре.", true));
     private final NumSetting reach = add(new NumSetting("Радиус", "Как далеко от тебя собирать урожай (блоки, не больше досягаемости руки).", 4.0, 1.5, 4.5, 0.5));
+    private final BoolSetting rotate = add(new BoolSetting("Смотреть на блок", "Поворачивать голову к блоку перед действием (выглядит естественнее, меньше вопросов от античита).", true));
     private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Пауза между действиями. Больше - медленнее и менее подозрительно.", 3, 1, 12, 1));
 
     private BlockPos breaking;
     private int cd;
+    /** Слот хотбара до пересадки (вернём его на следующем тике), -1 - не меняли. */
+    private int restoreSlot = -1;
     private long tick;
     private final Map<BlockPos, long[]> pending = new HashMap<>();
     private final Map<BlockPos, Item> pendingItem = new HashMap<>();
@@ -47,6 +51,10 @@ public class AutoFarm extends Module {
 
     @Override
     protected void onDisable() {
+        Minecraft mc = Minecraft.getInstance();
+        if (breaking != null && mc.gameMode != null) mc.gameMode.stopDestroyBlock();
+        if (restoreSlot >= 0 && mc.player != null) mc.player.getInventory().setSelectedSlot(restoreSlot);
+        restoreSlot = -1;
         breaking = null;
         pending.clear();
         pendingItem.clear();
@@ -56,9 +64,30 @@ public class AutoFarm extends Module {
         Block b = st.getBlock();
         if (crops.get() && b instanceof CropBlock cb && cb.isMaxAge(st)) return true;
         if (wart.get() && st.is(Blocks.NETHER_WART) && st.getValue(NetherWartBlock.AGE) >= 3) return true;
-        if (fruits.get() && (st.is(Blocks.PUMPKIN) || st.is(Blocks.MELON))) return true;
+        if (fruits.get() && (st.is(Blocks.PUMPKIN) || st.is(Blocks.MELON)) && grownFromStem(level, pos, st)) return true;
         if (cane.get() && (st.is(Blocks.SUGAR_CANE) || st.is(Blocks.CACTUS)) && level.getBlockState(pos.below()).is(b)) return true;
         return false;
+    }
+
+    /** Тыква/арбуз выросли от стебля: рядом есть "прикреплённый" стебель, смотрящий на этот блок. */
+    private static boolean grownFromStem(ClientLevel level, BlockPos pos, BlockState fruit) {
+        Block stem = fruit.is(Blocks.PUMPKIN) ? Blocks.ATTACHED_PUMPKIN_STEM : Blocks.ATTACHED_MELON_STEM;
+        for (Direction d : Direction.Plane.HORIZONTAL) {
+            BlockState s = level.getBlockState(pos.relative(d));
+            if (s.is(stem) && s.getValue(AttachedStemBlock.FACING) == d.getOpposite()) return true;
+        }
+        return false;
+    }
+
+    private void lookAt(LocalPlayer p, Vec3 target) {
+        if (!rotate.get()) return;
+        Vec3 eye = p.getEyePosition();
+        double dx = target.x - eye.x, dy = target.y - eye.y, dz = target.z - eye.z;
+        double h = Math.sqrt(dx * dx + dz * dz);
+        float yaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90f;
+        float pitch = (float) -Math.toDegrees(Math.atan2(dy, h));
+        p.setYRot(p.getYRot() + net.minecraft.util.Mth.wrapDegrees(yaw - p.getYRot()));
+        p.setXRot(net.minecraft.util.Mth.clamp(pitch, -90f, 90f));
     }
 
     private Item seedFor(BlockState st) {
@@ -76,21 +105,30 @@ public class AutoFarm extends Module {
         LocalPlayer p = mc.player;
         ClientLevel level = mc.level;
         if (p == null || level == null || mc.gameMode == null || mc.screen != null || p.isUsingItem()) return;
+
+        // Ломание блока продолжаем КАЖДЫЙ тик (иначе тыквы/арбузы ломались в несколько раз дольше)
+        if (breaking != null) {
+            BlockState st = level.getBlockState(breaking);
+            if (!harvestable(level, st, breaking) || p.getEyePosition().distanceToSqr(Vec3.atCenterOf(breaking)) > 36) {
+                if (!st.isAir()) mc.gameMode.stopDestroyBlock();
+                breaking = null;
+                cd = delay.asInt();
+            } else {
+                lookAt(p, Vec3.atCenterOf(breaking));
+                mc.gameMode.continueDestroyBlock(breaking, Direction.UP);
+                p.swing(InteractionHand.MAIN_HAND);
+                return;
+            }
+        }
+
         if (cd > 0) {
             cd--;
             return;
         }
 
-        if (breaking != null) {
-            BlockState st = level.getBlockState(breaking);
-            if (!harvestable(level, st, breaking)) {
-                breaking = null;
-            } else {
-                mc.gameMode.continueDestroyBlock(breaking, Direction.UP);
-                p.swing(InteractionHand.MAIN_HAND);
-                cd = delay.asInt();
-                return;
-            }
+        if (restoreSlot >= 0 && pending.isEmpty()) {
+            p.getInventory().setSelectedSlot(restoreSlot);
+            restoreSlot = -1;
         }
 
         if (replant.get() && tryReplant(mc, p, level)) {
@@ -102,6 +140,7 @@ public class AutoFarm extends Module {
         if (target == null) return;
         BlockState st = level.getBlockState(target);
         Item seed = seedFor(st);
+        lookAt(p, Vec3.atCenterOf(target));
         mc.gameMode.startDestroyBlock(target, Direction.UP);
         p.swing(InteractionHand.MAIN_HAND);
         if (!level.getBlockState(target).isAir()) breaking = target.immutable();
@@ -168,7 +207,11 @@ public class AutoFarm extends Module {
                 pendingItem.remove(pos);
                 continue;
             }
-            inv.setSelectedSlot(slot);
+            if (inv.getSelectedSlot() != slot) {
+                if (restoreSlot < 0) restoreSlot = inv.getSelectedSlot();
+                inv.setSelectedSlot(slot);
+            }
+            lookAt(p, Vec3.atCenterOf(below).add(0, 0.5, 0));
             mc.gameMode.useItemOn(p, InteractionHand.MAIN_HAND,
                     new BlockHitResult(Vec3.atCenterOf(below).add(0, 0.5, 0), Direction.UP, below, false));
             p.swing(InteractionHand.MAIN_HAND);

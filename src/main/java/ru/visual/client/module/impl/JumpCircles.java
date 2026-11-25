@@ -27,7 +27,8 @@ public class JumpCircles extends Module {
     private final NumSetting duration = add(new NumSetting("Длительность (сек)", "Сколько секунд круг расходится и гаснет.", 1.0, 0.4, 3.0, 0.1));
 
     private final List<Circle> circles = new ArrayList<>();
-    private final Map<Integer, Boolean> ground = new HashMap<>();
+    /** id игрока -> {был на земле (1/0), прошлая высота}. */
+    private final Map<Integer, double[]> ground = new HashMap<>();
 
     public JumpCircles() {
         super("JumpCircles", "Расходящийся круг под ногами в момент прыжка.", Category.VISUAL);
@@ -47,9 +48,13 @@ public class JumpCircles extends Module {
             if (!(e instanceof Player p) || p.isRemoved()) continue;
             if (!others.get() && p != mc.player) continue;
             boolean on = p.onGround();
-            Boolean prev = ground.put(p.getId(), on);
-            if (prev != null && prev && !on && p.getDeltaMovement().y > 0.1) {
-                circles.add(new Circle(p.getX(), p.getY() + 0.03, p.getZ(), now));
+            double[] prev = ground.put(p.getId(), new double[]{on ? 1 : 0, p.getY()});
+            if (prev == null || prev[0] == 0 || on) continue;
+            // У чужих игроков скорость на клиенте не считается (getDeltaMovement = 0), поэтому смотрим на рост высоты
+            double vy = p == mc.player ? p.getDeltaMovement().y : p.getY() - prev[1];
+            if (vy > 0.05) {
+                double baseY = p == mc.player ? p.getY() : prev[1];
+                circles.add(new Circle(p.getX(), baseY + 0.03, p.getZ(), now));
             }
         }
         if (ground.size() > 300) ground.clear();

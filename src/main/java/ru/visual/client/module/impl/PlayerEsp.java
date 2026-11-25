@@ -90,8 +90,7 @@ public class PlayerEsp extends Module implements Config.DefaultOn {
                     for (EquipmentSlot s : ARMOR) {
                         ItemStack st = p.getItemBySlot(s);
                         if (st.isEmpty()) continue;
-                        g.renderItem(st, ax, below);
-                        g.renderItemDecorations(mc.font, st, ax, below);
+                        Draw.item(g, st, ax, below);
                         ax += 16;
                     }
                 }

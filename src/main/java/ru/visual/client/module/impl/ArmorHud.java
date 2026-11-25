@@ -25,8 +25,7 @@ public class ArmorHud extends HudModule implements Config.DefaultOn {
         for (EquipmentSlot s : SLOTS) {
             ItemStack st = mc.player.getItemBySlot(s);
             if (!st.isEmpty()) {
-                g.renderItem(st, x, y);
-                g.renderItemDecorations(mc.font, st, x, y);
+                Draw.item(g, st, x, y);
                 if (st.isDamageableItem() && st.getMaxDamage() > 0) {
                     int left = st.getMaxDamage() - st.getDamageValue();
                     int pct = (int) (100.0 * left / st.getMaxDamage());

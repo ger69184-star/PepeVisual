@@ -180,11 +180,13 @@ public final class ModuleManager {
         ru.visual.client.util.Projection.update(mc, delta.getGameTimeDeltaPartialTick(false));
         for (Module m : MODULES) {
             if (m.isEnabled()) {
+                ru.visual.client.util.Draw.tracking = m instanceof HudModule hm ? hm : null;
                 try {
                     m.onHud(g, delta, mc);
                 } catch (Throwable t) {
                     ru.visual.client.VisualClient.LOGGER.error("Ошибка в модуле {} (hud)", m.name, t);
                 }
+                ru.visual.client.util.Draw.tracking = null;
             }
         }
     }

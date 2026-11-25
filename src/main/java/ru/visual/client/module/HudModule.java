@@ -43,6 +43,11 @@ public abstract class HudModule extends Module {
         }
     }
 
+    /** Вызывается из Draw автоматически. */
+    public void track(int x1, int y1, int x2, int y2) {
+        bounds(x1, y1, x2, y2);
+    }
+
     /** {x1, y1, x2, y2} или null, если элемент ничего не нарисовал недавно. */
     public int[] lastBounds() {
         if (boundsFrame < 0 || ModuleManager.frame() - boundsFrame > 5) return null;

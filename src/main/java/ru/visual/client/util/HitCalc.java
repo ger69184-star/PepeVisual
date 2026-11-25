@@ -2,6 +2,7 @@ package ru.visual.client.util;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
@@ -22,6 +23,7 @@ public final class HitCalc {
         ItemStack hand = mc.player.getMainHandItem();
         int sharp = enchantLevel(hand, true);
         if (sharp > 0) base += 0.5 * sharp + 0.5;
+        // Сила / Слабость уже входят в атрибут ATTACK_DAMAGE, поэтому отдельно их не считаем
 
         double armor = target.getArmorValue();
         double tough = target.getAttributeValue(Attributes.ARMOR_TOUGHNESS);
@@ -32,11 +34,8 @@ public final class HitCalc {
         double protection = 1.0 - Math.min(20, epf) * 0.04;
 
         double resist = 1.0;
-        for (MobEffectInstance e : target.getActiveEffects()) {
-            if (e.getEffect().value().getDescriptionId().equals("effect.minecraft.resistance")) {
-                resist = Math.max(0.0, 1.0 - 0.2 * (e.getAmplifier() + 1));
-            }
-        }
+        MobEffectInstance res = target.getEffect(MobEffects.RESISTANCE);
+        if (res != null) resist = Math.max(0.0, 1.0 - 0.2 * (res.getAmplifier() + 1));
 
         double dmg = after(base, armor, tough) * protection * resist;
         double crit = after(base * 1.5, armor, tough) * protection * resist;

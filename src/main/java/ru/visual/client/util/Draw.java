@@ -9,7 +9,21 @@ public final class Draw {
     public static final int WHITE = 0xFFFFFFFF;
     public static final int GRAY = 0xFFAAAAAA;
 
+    /** HUD-модуль, который сейчас рисуется: его область собирается автоматически (для редактора HUD). */
+    public static ru.visual.client.module.HudModule tracking;
+
     private Draw() {}
+
+    private static void track(int x1, int y1, int x2, int y2) {
+        if (tracking != null) tracking.track(Math.min(x1, x2), Math.min(y1, y2), Math.max(x1, x2), Math.max(y1, y2));
+    }
+
+    /** Предмет-иконка 16x16 (с учётом области для редактора HUD). */
+    public static void item(GuiGraphics g, net.minecraft.world.item.ItemStack st, int x, int y) {
+        g.renderItem(st, x, y);
+        g.renderItemDecorations(Minecraft.getInstance().font, st, x, y);
+        track(x, y, x + 16, y + 16);
+    }
 
     /** Основной цвет темы. */
     public static int accent() {
@@ -30,6 +44,7 @@ public final class Draw {
 
     public static void text(GuiGraphics g, String s, int x, int y, int color) {
         g.drawString(Minecraft.getInstance().font, s, x, y, color);
+        track(x, y, x + width(s), y + 9);
     }
 
     public static void textCentered(GuiGraphics g, String s, int cx, int y, int color) {
@@ -46,6 +61,7 @@ public final class Draw {
 
     public static void rect(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
         g.fill(x1, y1, x2, y2, color);
+        track(x1, y1, x2, y2);
     }
 
     public static void outline(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
@@ -53,6 +69,7 @@ public final class Draw {
         g.fill(x1, y2 - 1, x2, y2, color);
         g.fill(x1, y1, x1 + 1, y2, color);
         g.fill(x2 - 1, y1, x2, y2, color);
+        track(x1, y1, x2, y2);
     }
 
     public static void dot(GuiGraphics g, double x, double y, int size, int color) {

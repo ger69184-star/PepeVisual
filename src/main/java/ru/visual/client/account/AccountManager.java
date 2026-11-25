@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 /** Список оффлайн-аккаунтов (ники) и смена текущей сессии. Работает на серверах с offline-mode. */
@@ -92,6 +93,11 @@ public final class AccountManager {
                 } else if (f.getType() == GameProfile.class) {
                     f.setAccessible(true);
                     f.set(mc, new GameProfile(uuid, name));
+                } else if (f.getType() == CompletableFuture.class && isProfileFuture(f, mc)) {
+                    // Minecraft.getGameProfile() берёт ник/скин из profileFuture (профиль с серверов Mojang).
+                    // Без сброса игра продолжала бы показывать и отправлять старый профиль.
+                    f.setAccessible(true);
+                    f.set(mc, CompletableFuture.completedFuture(null));
                 }
             }
             if (done) {
@@ -101,6 +107,20 @@ public final class AccountManager {
             return done;
         } catch (Throwable t) {
             VisualClient.LOGGER.error("Не удалось сменить аккаунт", t);
+            return false;
+        }
+    }
+
+    /** profileFuture в релизной игре называется иначе (intermediary), поэтому смотрим на содержимое. */
+    private static boolean isProfileFuture(Field f, Minecraft mc) {
+        try {
+            f.setAccessible(true);
+            Object v = f.get(mc);
+            if (!(v instanceof CompletableFuture<?> cf) || !cf.isDone()) return false;
+            Object r = cf.getNow(null);
+            // com.mojang.authlib.yggdrasil.ProfileResult - класс authlib, его имя не обфусцируется
+            return r != null && r.getClass().getName().endsWith("ProfileResult");
+        } catch (Throwable t) {
             return false;
         }
     }
