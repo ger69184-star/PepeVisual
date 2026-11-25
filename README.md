@@ -4,10 +4,10 @@
 Лягушонок в `assets/pepevisual/textures/gui/pepe.png` нарисован специально для проекта, его можно заменить своей картинкой 128x128.
 
 ## Как собрать
-1. JDK 21 и Gradle 9.x (или IntelliJ IDEA).
-2. Один раз: `gradle wrapper --gradle-version 9.2.0`
-3. Сборка: `./gradlew build` (Windows: `gradlew.bat build`)
-4. Мод: `build/libs/PepeVisual-1.0.0.jar` -> в `mods/` вместе с Fabric Loader 0.18.4+ и Fabric API для 1.21.11.
+1. JDK 21 (или IntelliJ IDEA). Gradle Wrapper 9.2.0 уже в репозитории.
+2. Сборка: `./gradlew build` (Windows: `gradlew.bat build`)
+3. Готовый jar также собирается автоматически GitHub Actions (вкладка Actions -> артефакт `PepeVisual`).
+4. Мод: `build/libs/PepeVisual-*.jar` -> в `mods/` вместе с Fabric Loader 0.18.4+ и Fabric API для 1.21.11.
 5. Запуск из IDE: `./gradlew runClient`
 
 Если Gradle не находит Fabric API, поменяй `fabric_version` в `gradle.properties`
@@ -16,17 +16,59 @@
 ## Управление
 - **Right Shift** - меню. ЛКМ - вкл/выкл, **ПКМ - настройки и клавиша функции**, колёсико - прокрутка.
 - Привязка клавиши: ПКМ по функции -> "Клавиша" -> ЛКМ -> нажми кнопку (Esc - отмена, Delete - сброс).
-- **C** (зажать) - Zoom. **Left Alt** (зажать) - FreeLook в режиме "Пока зажата клавиша".
+- **C** (зажать) - Zoom, колесо мыши во время зума - сила приближения. **Left Alt** (зажать) - FreeLook в режиме "Пока зажата клавиша".
+- **Редактор HUD** (кнопка внизу меню): элементы HUD перетаскиваются мышью, ПКМ - вернуть на место.
+- Команды меток: `/pvwp add <имя>`, `/pvwp del <имя>`, `/pvwp list`, `/pvwp clear`.
 - Описание появляется при наведении на любую функцию и любую настройку.
 
 ## Разделы
-**Visual:** PlayerESP, TargetESP, **HitsToKill (сколько ударов до смерти цели)**, Trajectories (жемчуг эндера и др.), ItemESP, Tracers,
-Glow, JumpCircles, Trails, DamageIndicators, HitParticles, HitAnimations, Crosshair, Fullbright, Zoom.
+**Visual:** PlayerESP, TargetESP, **HitsToKill (сколько ударов до смерти цели)**, Trajectories (жемчуг эндера и др.), ItemESP (ценные предметы, луч),
+Tracers, Glow (игроки/мобы/предметы, свой цвет), JumpCircles, Trails, DamageIndicators, HitParticles, HitAnimations, Crosshair,
+Fullbright, Zoom (плавный, колесо мыши), **Block Outline**, **Custom Fog**, **World Time**, **StorageESP**, **ChinaHat**, **ViewModel**, **Aspect Ratio**.
 **Helper:** **AutoBrew** (бот сам ходит между зельеварками), BuildHelper, AutoFarm, DungeonFinder, BaseFinder.
 **Movement:** AutoSprint, AutoWalk, **FreeLook** (камера от 3 лица вращается мышью, персонаж бежит вперёд и не поворачивается),
 **AutoWindCharge** (авто-сфера воздуха: ветряной заряд под ноги).
 **HUD:** **PepeBackground (лягушонок на заднем плане)**, Interface, Watermark, TargetHUD, ModuleList, Info, ArmorHUD, PotionHUD,
-ItemCounter, Cooldowns, NearbyPlayers, Radar, Keystrokes. **NoRender**, **Utility** (AutoRespawn), **Optimization**.
+ItemCounter, Cooldowns, NearbyPlayers, Radar, Keystrokes, **Server Info**, **Health Indicator**, **Saturation**, **Durability Warning**, **Notifications**.
+**NoRender**, **Utility** (AutoRespawn, **Waypoints**, **Death Info**), **Optimization**.
+
+### Новое в этой версии
+| Функция | Что делает |
+|---|---|
+| Block Outline | Цвет/радуга, толщина и пульсация обводки блока под прицелом |
+| Custom Fog | Убрать туман или изменить его дальность и цвет (можно и в воде/лаве) |
+| World Time | Своё время суток (фиксированное или быстрый цикл), видно только тебе |
+| StorageESP | Сундуки, эндер-сундуки, шалкеры, бочки, печки, воронки, спавнеры сквозь стены |
+| ChinaHat | Конус-шляпа над головой (от 3-го лица и на других игроках) |
+| ViewModel | Сдвиг и размер рук/предметов от первого лица |
+| Aspect Ratio | "Растянутое" разрешение 4:3, 5:4, 16:10, 1:1 или своё |
+| Waypoints | Метки на экране, отдельно для каждого сервера и измерения |
+| Death Info | Координаты, измерение и причина смерти в чат + метка "Смерть" |
+| Server Info | Адрес сервера, TPS, пинг, онлайн, время сессии |
+| Health Indicator | Полоска HP существа под прицелом |
+| Saturation | Сытость и скрытое насыщение |
+| Durability Warning | Мигающее предупреждение и звук при низкой прочности брони/инструмента |
+| Notifications | Всплывающие уведомления о включении/выключении функций |
+| Редактор HUD | Перетаскивание элементов HUD мышью |
+
+### Исправленные ошибки
+- Не компилировалось: `ParticleStatus` (другой пакет), `Options.setKey` (нет в 1.21.11), неверная ссылка на метод HUD.
+- Миксин тряски камеры/тотема был `static` для нестатических методов - NoRender "Тряска камеры" и "Тотем" не работали.
+- ESP/трейсеры/круги съезжали от 3-го лица, во FreeLook, при покачивании камеры, зуме и спринте: теперь используются настоящие матрицы рендера.
+- Glow ничего не делал (флаг свечения на клиенте перезаписывается сервером) и снимал настоящее свечение - теперь через миксин.
+- Zoom менял настройку FOV и мог "залипнуть" после вылета - теперь подменяет FOV только при отрисовке.
+- Fullbright выдавал клиентское Ночное зрение и снимал настоящее зелье - теперь через яркость карты освещения.
+- Optimization: урезанные настройки графики попадали в `options.txt`; ручные изменения настроек затирались каждую секунду.
+- Конфиг сохранялся только при закрытии меню/игры - теперь и через 2 секунды после изменения (не теряется при вылете).
+- При запуске игры `onEnable` вызывался до создания мира.
+- AutoFarm: ломал тыквы/арбузы в разы медленнее (continueDestroyBlock раз в N тиков), ломал декоративные тыквы, не возвращал слот хотбара, не смотрел на блок.
+- JumpCircles не работал для других игроков (их скорость на клиенте всегда 0).
+- HitsToKill/HitCalc: эффект Сопротивления определялся по строке названия.
+- TargetHUD: поглощение (золотые сердца) искажало полосу HP.
+- Info: CPS терял быстрые клики (считался раз в тик), направление было на английском.
+- Меню: ползунок смещён на 2 пикселя относительно мыши; `ColorSetting.get()` возвращал исходный цвет.
+- Смена оффлайн-аккаунта: игра продолжала использовать старый профиль (`profileFuture`).
+- ColorSetting использовал `java.awt.Color` (AWT вместе с GLFW может ломать запуск на macOS).
 
 ### AutoBrew
 Выбери зелье в настройках, положи в инвентарь водяные бутылки, адский нарост, нужный ингредиент и огненный порошок.
@@ -42,6 +84,6 @@ ItemCounter, Cooldowns, NearbyPlayers, Radar, Keystrokes. **NoRender**, **Utilit
 Режим "При прыжке": бросок при каждом прыжке с земли.
 
 ## Если игра не запускается / не компилируется
-Самые рискованные места (API 1.21.11): `KeyMapping.Category.MISC`, `VanillaHudElements.*`, `Options.setKey`, `MouseButtonEvent/KeyEvent`,
+Сборка проверяется GitHub Actions на каждом коммите. Рискованные места (API 1.21.11): `KeyMapping.Category.MISC`, `VanillaHudElements.*`, `MouseButtonEvent/KeyEvent`,
 `GuiGraphics.blit` (PepeBackground), `handleInventoryMouseClick` (AutoBrew), `Inventory.setSelectedSlot` (AutoFarm, AutoWindCharge),
 `getCooldownPercent` (Cooldowns). Миксины необязательные: неподошедший только пишет предупреждение в лог.
