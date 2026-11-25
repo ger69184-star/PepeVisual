@@ -24,7 +24,28 @@ public final class ModuleManager {
     public static CustomCrosshair crosshair;
     public static PepeBackground pepe;
 
+    private static long frame;
+    private static boolean configDirty;
+    private static int saveTimer;
+
     private ModuleManager() {}
+
+    /** Номер кадра HUD (для редактора HUD и анимаций). */
+    public static long frame() {
+        return frame;
+    }
+
+    /** Модуль включили/выключили: конфиг сохранится через пару секунд (не теряется при вылете игры). */
+    static void onToggled(Module m) {
+        configDirty = true;
+        saveTimer = 0;
+    }
+
+    /** Отметить, что настройки изменились (меню, редактор HUD). */
+    public static void markDirty() {
+        configDirty = true;
+        saveTimer = 0;
+    }
 
     public static void init() {
         // ---- Visual ----
@@ -45,6 +66,9 @@ public final class ModuleManager {
         MODULES.add(crosshair);
         MODULES.add(new Fullbright());
         MODULES.add(new Zoom());
+        MODULES.add(new BlockOutline());
+        MODULES.add(new CustomFog());
+        MODULES.add(new WorldTime());
 
         // ---- HUD ----
         pepe = new PepeBackground();
@@ -99,9 +123,9 @@ public final class ModuleManager {
         Minecraft mc = Minecraft.getInstance();
         if (m.bind == null) return;
         InputConstants.Key key = keyCode < 0 ? InputConstants.UNKNOWN : InputConstants.Type.KEYSYM.getOrCreate(keyCode);
-        mc.options.setKey(m.bind, key);
+        m.bind.setKey(key);
         KeyMapping.resetMapping();
-        mc.options.save();
+        if (mc.options != null) mc.options.save();
     }
 
     public static String bindName(Module m) {
@@ -122,6 +146,10 @@ public final class ModuleManager {
                     if (mc.screen == null) m.toggle();
                 }
             }
+        }
+        if (configDirty && ++saveTimer >= 40) {
+            configDirty = false;
+            Config.save();
         }
         for (Module m : MODULES) {
             if (m.isEnabled()) {
@@ -145,7 +173,9 @@ public final class ModuleManager {
         }
     }
 
-    public static void renderHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
+    public static void renderHud(GuiGraphics g, DeltaTracker delta) {
+        Minecraft mc = Minecraft.getInstance();
+        frame++;
         if (mc.player == null || mc.level == null) return;
         ru.visual.client.util.Projection.update(mc, delta.getGameTimeDeltaPartialTick(false));
         for (Module m : MODULES) {

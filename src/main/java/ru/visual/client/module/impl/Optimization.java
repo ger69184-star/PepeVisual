@@ -3,7 +3,7 @@ package ru.visual.client.module.impl;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
-import net.minecraft.client.ParticleStatus;
+import net.minecraft.server.level.ParticleStatus;
 import ru.visual.client.module.Category;
 import ru.visual.client.module.Config;
 import ru.visual.client.module.Module;
@@ -17,7 +17,10 @@ import ru.visual.client.setting.NumSetting;
 public class Optimization extends Module implements Config.DefaultOn {
     private static final class Managed<T> {
         boolean active;
+        /** Пользователь сам поменял настройку, пока модуль был включён - больше не трогаем её. */
+        boolean userOverride;
         T original;
+        T applied;
     }
 
     private final BoolSetting clouds = add(new BoolSetting("Без облаков", "Отключает облака - заметно экономит FPS.", true));
@@ -47,6 +50,11 @@ public class Optimization extends Module implements Config.DefaultOn {
     @Override
     protected void onEnable() {
         timer = 0;
+        for (Managed<?> m : all()) m.userOverride = false;
+    }
+
+    private Managed<?>[] all() {
+        return new Managed<?>[]{mCloud, mParticles, mShadows, mBlend, mAo, mEntities, mFps};
     }
 
     @Override
@@ -57,6 +65,9 @@ public class Optimization extends Module implements Config.DefaultOn {
     @Override
     public void onShutdown() {
         restoreAll();
+        // Записываем исходные значения в options.txt, иначе в файле остались бы наши (урезанные) настройки
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.options != null) mc.options.save();
     }
 
     @Override
@@ -92,15 +103,23 @@ public class Optimization extends Module implements Config.DefaultOn {
     }
 
     private static <T> void manage(Managed<T> m, OptionInstance<T> opt, boolean on, T target) {
-        if (on) {
+        if (on && !m.userOverride) {
             if (!m.active) {
                 m.original = opt.get();
                 m.active = true;
+            } else if (m.applied != null && !opt.get().equals(m.applied)) {
+                // Игрок изменил настройку вручную: уважаем его выбор и больше её не переопределяем
+                m.userOverride = true;
+                m.active = false;
+                m.original = null;
+                return;
             }
             if (!opt.get().equals(target)) opt.set(target);
+            m.applied = opt.get();
         } else if (m.active) {
             if (m.original != null) opt.set(m.original);
             m.active = false;
+            m.applied = null;
         }
     }
 }

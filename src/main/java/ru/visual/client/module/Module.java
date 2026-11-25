@@ -1,10 +1,11 @@
 package ru.visual.client.module;
 
 import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.entity.Entity;
+import ru.visual.client.VisualClient;
 import ru.visual.client.setting.Setting;
 
 import java.util.ArrayList;
@@ -38,13 +39,20 @@ public abstract class Module {
     public void setEnabled(boolean value) {
         if (value == enabled) return;
         enabled = value;
-        if (value) onEnable(); else onDisable();
+        try {
+            if (value) onEnable(); else onDisable();
+        } catch (Throwable t) {
+            VisualClient.LOGGER.error("Ошибка в модуле {} ({})", name, value ? "enable" : "disable", t);
+        }
+        ModuleManager.onToggled(this);
     }
 
-    /** Используется при загрузке конфига. */
+    /**
+     * Используется при загрузке конфига (в момент запуска игры: мира и настроек игры ещё нет,
+     * поэтому onEnable не вызывается - модули сами подхватывают состояние в onTick).
+     */
     public void setEnabledSilently(boolean value) {
         this.enabled = value;
-        if (value) onEnable();
     }
 
     public void toggle() {

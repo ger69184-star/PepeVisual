@@ -11,7 +11,13 @@
     "GameRendererMixin",
     "ItemInHandRendererMixin",
     "EntityMixin",
-    "CameraMixin"
+    "CameraMixin",
+    "LevelRendererMixin",
+    "MinecraftMixin",
+    "LightTextureMixin",
+    "MouseHandlerMixin",
+    "FogRendererMixin",
+    "ClientLevelDataMixin"
   ],
   "injectors": {
     "defaultRequire": 0
