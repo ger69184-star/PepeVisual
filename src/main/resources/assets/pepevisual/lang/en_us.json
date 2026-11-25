@@ -55,5 +55,11 @@
   "key.pepevisual.bind.watermark": "PV: Watermark",
   "key.pepevisual.bind.waypoints": "PV: Waypoints",
   "key.pepevisual.bind.worldtime": "PV: World Time",
-  "key.pepevisual.bind.zoom": "PV: Zoom"
+  "key.pepevisual.bind.zoom": "PV: Zoom",
+  "key.pepevisual.build.confirm": "BuildHelper: confirm / next",
+  "key.pepevisual.build.rotate": "BuildHelper: rotate blueprint",
+  "key.pepevisual.build.cancel": "BuildHelper: cancel / pause",
+  "key.pepevisual.bind.autopearl": "Toggle AutoPearl",
+  "key.pepevisual.bind.chestsorter": "Toggle ChestSorter",
+  "key.pepevisual.bind.shulkerpreview": "Toggle ShulkerPreview"
 }

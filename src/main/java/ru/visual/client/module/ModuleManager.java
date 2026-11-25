@@ -71,6 +71,7 @@ public final class ModuleManager {
         MODULES.add(new CustomFog());
         MODULES.add(new WorldTime());
         MODULES.add(new StorageEsp());
+        MODULES.add(new ShulkerPreview());
         MODULES.add(new ChinaHat());
         MODULES.add(new ViewModel());
         MODULES.add(new AspectRatio());
@@ -103,6 +104,7 @@ public final class ModuleManager {
         // ---- Helpers ----
         MODULES.add(new AutoBrew());
         MODULES.add(new BuildHelper());
+        MODULES.add(new ChestSorter());
         MODULES.add(new AutoFarm());
         MODULES.add(new DungeonFinder());
         MODULES.add(new BaseFinder());
@@ -112,6 +114,7 @@ public final class ModuleManager {
         MODULES.add(new AutoWalk());
         MODULES.add(new FreeLook());
         MODULES.add(new AutoWindCharge());
+        MODULES.add(new AutoPearl());
 
         // ---- Utility / Optimization ----
         MODULES.add(new AutoRespawn());
@@ -200,6 +203,25 @@ public final class ModuleManager {
                 }
                 ru.visual.client.util.Draw.tracking = null;
             }
+        }
+    }
+
+    public static void renderWorld(net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext ctx) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || mc.level == null) return;
+        float pt = mc.getDeltaTracker().getGameTimeDeltaPartialTick(false);
+        ru.visual.client.util.R3D.begin(ctx);
+        try {
+            for (Module m : MODULES) {
+                if (!m.isEnabled()) continue;
+                try {
+                    m.onWorld(ctx, pt, mc);
+                } catch (Throwable t) {
+                    ru.visual.client.VisualClient.LOGGER.error("Ошибка в модуле {} (world)", m.name, t);
+                }
+            }
+        } finally {
+            ru.visual.client.util.R3D.end();
         }
     }
 

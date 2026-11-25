@@ -55,5 +55,11 @@
   "key.pepevisual.bind.watermark": "PV: Водяной знак",
   "key.pepevisual.bind.waypoints": "PV: Метки",
   "key.pepevisual.bind.worldtime": "PV: Время суток",
-  "key.pepevisual.bind.zoom": "PV: Зум"
+  "key.pepevisual.bind.zoom": "PV: Зум",
+  "key.pepevisual.build.confirm": "Стройка: подтвердить / далее",
+  "key.pepevisual.build.rotate": "Стройка: повернуть чертёж",
+  "key.pepevisual.build.cancel": "Стройка: отмена / пауза",
+  "key.pepevisual.bind.autopearl": "Вкл/выкл AutoPearl (жемчуг за целью)",
+  "key.pepevisual.bind.chestsorter": "Вкл/выкл ChestSorter (сортировка)",
+  "key.pepevisual.bind.shulkerpreview": "Вкл/выкл ShulkerPreview (превью шалкеров)"
 }

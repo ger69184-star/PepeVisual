@@ -22,16 +22,10 @@ public class AutoWindCharge extends Module {
     private final NumSetting cooldown = add(new NumSetting("Перезарядка (тики)", "Минимальная пауза между бросками. У ветряного заряда своя перезарядка около 10 тиков.", 12, 8, 40, 1));
     private final BoolSetting message = add(new BoolSetting("Сообщать об ошибке", "Писать в чат, если ветряного заряда нет в хотбаре.", true));
 
-    private boolean pending;
     private long tick, last;
 
     public AutoWindCharge() {
         super("AutoWindCharge", "Авто-сфера воздуха: бросает ветряной заряд себе под ноги и подбрасывает тебя вверх.", Category.MOVEMENT);
-    }
-
-    @Override
-    protected void onEnable() {
-        pending = mode.is("По клавише (один бросок)");
     }
 
     @Override
@@ -51,11 +45,10 @@ public class AutoWindCharge extends Module {
             }
             return;
         }
-        if (pending) {
-            pending = false;
-            throwUnderFeet(mc, p);
-            setEnabled(false);
-        }
+        // По клавише: один бросок и выключение. Раньше флаг ставился только в onEnable, и функция,
+        // включённая из конфига при запуске игры, "висела" включённой и ничего не делала.
+        throwUnderFeet(mc, p);
+        setEnabled(false);
     }
 
     private void throwUnderFeet(Minecraft mc, LocalPlayer p) {

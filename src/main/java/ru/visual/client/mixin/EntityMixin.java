@@ -21,7 +21,8 @@ public class EntityMixin {
     /** Glow: свой цвет контура. */
     @Inject(method = "getTeamColor", at = @At("HEAD"), cancellable = true, require = 0)
     private void pepevisual$glowColor(CallbackInfoReturnable<Integer> cir) {
-        Integer c = Glow.colorFor((Entity) (Object) this);
+        Integer c = ru.visual.client.module.impl.TargetEsp.glowColor((Entity) (Object) this);
+        if (c == null) c = Glow.colorFor((Entity) (Object) this);
         if (c != null) cir.setReturnValue(c);
     }
 }

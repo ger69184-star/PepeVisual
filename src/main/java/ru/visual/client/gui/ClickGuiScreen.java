@@ -279,6 +279,7 @@ public class ClickGuiScreen extends Screen {
                 } else if (button == 1 && h.right != null) {
                     h.right.run();
                 }
+                ModuleManager.markDirty(); // настройки не теряются, даже если игра вылетит до закрытия меню
                 return true;
             }
         }

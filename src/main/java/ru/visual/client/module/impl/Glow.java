@@ -52,7 +52,7 @@ public class Glow extends Module {
     public static Integer colorFor(Entity e) {
         Glow g = instance;
         if (g == null || !g.isEnabled() || !g.matches(e)) return null;
-        if (g.targetRed.get() && TargetManager.isTarget(e)) return 0xFF3030;
+        if (g.targetRed.get() && TargetManager.isHitTarget(e)) return 0xFF3030;
         if (g.colorMode.is("Команда")) return null;
         return g.color.argb() & 0xFFFFFF;
     }

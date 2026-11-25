@@ -1,19 +1,31 @@
 package ru.visual.client.module.impl;
 
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.level.EmptyBlockGetter;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.ChunkAccess;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import ru.visual.client.VisualClient;
 import ru.visual.client.module.Category;
 import ru.visual.client.module.Module;
 import ru.visual.client.setting.BoolSetting;
@@ -23,223 +35,661 @@ import ru.visual.client.util.Blueprint;
 import ru.visual.client.util.Blueprints;
 import ru.visual.client.util.Draw;
 import ru.visual.client.util.Projection;
+import ru.visual.client.util.R3D;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * Помощник строителя: призрачная проекция чертежа, список нужных блоков и подсказка, что ставить следующим.
- * Наведи на блок, выбери чертёж и включи "Зафиксировать место".
+ * Режим строительства по чертежам-гайдам.
+ * <ol>
+ *     <li>Выбери чертёж в меню и включи функцию.</li>
+ *     <li>[G] - первый угол зоны, [G] - второй угол (зона подсвечивается, видно, влезает ли постройка).</li>
+ *     <li>Проверь проекцию, список материалов и препятствия, [R] - повернуть, [G] - начать.</li>
+ *     <li>Стройка по шагам: подсвечивается блок, который ставить сейчас, стрелка показывает, куда смотреть,
+ *     на панели - как именно ставить. Поставил правильно - шаг засчитан, подсвечивается следующий.</li>
+ * </ol>
  */
 public class BuildHelper extends Module {
-    private record Cell(BlockPos pos, Block block, int layer, boolean wrong) {}
+    private enum Stage { SELECT_A, SELECT_B, CONFIRM, BUILD, DONE }
+
+    private enum St { OK, MISSING, WRONG }
+
+    private static final class Cell {
+        final BlockPos pos;
+        final Blueprint.Spec spec;
+        final BlockState want;
+        final int layer;
+        final int phase;
+        St st = St.MISSING;
+
+        Cell(BlockPos pos, Blueprint.Spec spec, BlockState want, int layer, int phase) {
+            this.pos = pos;
+            this.spec = spec;
+            this.want = want;
+            this.layer = layer;
+            this.phase = phase;
+        }
+    }
 
     private final ModeSetting blueprint = add(new ModeSetting("Чертёж", "Что строим. ЛКМ - следующий чертёж, ПКМ - предыдущий.", Blueprints.ALL.get(0).name, Blueprints.names()));
-    private final ModeSetting rotate = add(new ModeSetting("Поворот", "Поворот чертежа на 90 градусов.", "0°", "0°", "90°", "180°", "270°"));
-    private final BoolSetting lock = add(new BoolSetting("Зафиксировать место", "Включи, когда проекция стоит там, где нужно. Пока выключено - чертёж следует за твоим прицелом.", false));
-    private final ModeSetting layerMode = add(new ModeSetting("Слои", "Авто - показывает самый нижний недостроенный слой. Можно показать все или один выбранный.", "Авто (снизу вверх)", "Авто (снизу вверх)", "Все слои", "Выбранный слой"));
-    private final NumSetting layer = add(new NumSetting("Номер слоя", "Какой слой показывать в режиме 'Выбранный слой' (1 = нижний).", 1, 1, 8, 1));
-    private final NumSetting shiftX = add(new NumSetting("Сдвиг X", "Точная подгонка положения чертежа по X (блоки).", 0, -10, 10, 1));
-    private final NumSetting shiftY = add(new NumSetting("Сдвиг Y", "Точная подгонка положения чертежа по высоте (блоки).", 0, -10, 10, 1));
-    private final NumSetting shiftZ = add(new NumSetting("Сдвиг Z", "Точная подгонка положения чертежа по Z (блоки).", 0, -10, 10, 1));
-    private final NumSetting range = add(new NumSetting("Дальность показа", "Дальше этого расстояния клетки чертежа не рисуются (блоки).", 40, 8, 100, 4));
+    private final ModeSetting rotate = add(new ModeSetting("Поворот", "Поворот чертежа (клавиша R во время выбора).", "0°", "0°", "90°", "180°", "270°"));
+    private final ModeSetting view = add(new ModeSetting("Показ", "Пошагово - текущий блок и несколько следующих. Слой - весь текущий слой. Всё - все недостающие блоки.",
+            "Пошагово", "Пошагово", "Слой", "Всё"));
+    private final NumSetting ahead = add(new NumSetting("Шагов вперёд", "Сколько следующих шагов подсвечивать (пошаговый режим).", 3, 0, 12, 1));
+    private final NumSetting shiftX = add(new NumSetting("Сдвиг X", "Подгонка положения по X (блоки).", 0, -10, 10, 1));
+    private final NumSetting shiftY = add(new NumSetting("Сдвиг Y", "Подгонка положения по высоте (блоки).", 0, -30, 30, 1));
+    private final NumSetting shiftZ = add(new NumSetting("Сдвиг Z", "Подгонка положения по Z (блоки).", 0, -10, 10, 1));
+    private final NumSetting range = add(new NumSetting("Дальность показа", "Дальше этого расстояния клетки не рисуются (блоки).", 48, 8, 128, 4));
+    private final BoolSetting sound = add(new BoolSetting("Звук шага", "Короткий звук, когда шаг выполнен.", true));
+    private final BoolSetting walls = add(new BoolSetting("Метка сквозь стены", "Подпись текущего шага видна сквозь блоки.", true));
     private final NumSetting panelX = add(new NumSetting("Панель X", "Смещение информационной панели по горизонтали.", 0, -500, 500, 1));
     private final NumSetting panelY = add(new NumSetting("Панель Y", "Смещение информационной панели по вертикали.", 0, -300, 300, 1));
 
+    private Stage stage = Stage.SELECT_A;
+    private BlockPos cornerA, cornerB;
+    private BlockPos origin;
+    private int rot;
+    private String bpName;
+    private BlockPos alignedTo;
     private final List<Cell> cells = new ArrayList<>();
-    private Cell next;
-    private int total;
-    private BlockPos base;
-    private BlockPos anchor;
+    private final Set<BlockPos> skipped = new HashSet<>();
+    private final Map<BlockPos, Long> recentDone = new HashMap<>();
+    private Cell current;
+    private final List<Cell> upcoming = new ArrayList<>();
+    private int total, done, wrong, existingMissing;
     private int timer;
+    private String message = "";
+    private long messageTime;
 
     public BuildHelper() {
-        super("BuildHelper", "Помощь строителям: проекция чертежа, сколько блоков нужно, какая комната и что ставить дальше.", Category.HELPERS);
+        super("BuildHelper", "Строительство по чертежам-гайдам: фермы, мобофермы, зельеварни. Выдели зону, получи список материалов и пошаговую подсветку, куда что ставить.", Category.HELPERS);
+    }
+
+    @Override
+    public String info() {
+        return switch (stage) {
+            case BUILD -> done + "/" + total;
+            case DONE -> "готово";
+            default -> null;
+        };
+    }
+
+    @Override
+    protected void onEnable() {
+        reset();
     }
 
     @Override
     protected void onDisable() {
-        cells.clear();
-        next = null;
-        anchor = null;
-        base = null;
-        lock.set(false);
+        reset();
     }
 
-    private BlockPos preview(Minecraft mc) {
-        if (mc.hitResult instanceof BlockHitResult h && h.getType() == HitResult.Type.BLOCK) {
-            return h.getBlockPos().relative(h.getDirection());
-        }
+    private void reset() {
+        stage = Stage.SELECT_A;
+        cornerA = cornerB = origin = null;
+        alignedTo = null;
+        cells.clear();
+        skipped.clear();
+        recentDone.clear();
+        upcoming.clear();
+        current = null;
+    }
+
+    private Blueprint bp() {
+        return Blueprints.byName(blueprint.get());
+    }
+
+    private void say(String s) {
+        message = s;
+        messageTime = System.currentTimeMillis();
+    }
+
+    private BlockPos lookBlock(Minecraft mc) {
+        if (mc.hitResult instanceof BlockHitResult h && h.getType() == HitResult.Type.BLOCK) return h.getBlockPos();
         return null;
     }
 
-    private static boolean ok(Block expected, BlockState s) {
-        if (s.is(expected)) return true;
-        return expected == Blocks.DIRT && (s.is(Blocks.FARMLAND) || s.is(Blocks.GRASS_BLOCK));
+    // ---------- геометрия ----------
+
+    private int width(Blueprint bp, int r) {
+        return r % 2 == 0 ? bp.sx : bp.sz;
     }
+
+    private int depth(Blueprint bp, int r) {
+        return r % 2 == 0 ? bp.sz : bp.sx;
+    }
+
+    /** Локальные x,z чертежа -> смещение в мире при повороте r (по часовой стрелке). */
+    private static int[] local(Blueprint bp, int x, int z, int r) {
+        return switch (r) {
+            case 1 -> new int[]{(bp.sz - 1) - z, x};
+            case 2 -> new int[]{(bp.sx - 1) - x, (bp.sz - 1) - z};
+            case 3 -> new int[]{z, (bp.sx - 1) - x};
+            default -> new int[]{x, z};
+        };
+    }
+
+    private BlockPos originForZone(Blueprint bp, int r, BlockPos a, BlockPos b) {
+        int w = width(bp, r), d = depth(bp, r);
+        int minX = Math.min(a.getX(), b.getX()), minZ = Math.min(a.getZ(), b.getZ());
+        int zx = Math.abs(a.getX() - b.getX()) + 1, zz = Math.abs(a.getZ() - b.getZ()) + 1;
+        int ox = minX + Math.max(0, (zx - w) / 2) + shiftX.asInt();
+        int oz = minZ + Math.max(0, (zz - d) / 2) + shiftZ.asInt();
+        int oy = Math.min(a.getY(), b.getY()) + 1 - bp.ground + shiftY.asInt();
+        return new BlockPos(ox, oy, oz);
+    }
+
+    private boolean fits(Blueprint bp, int r, BlockPos a, BlockPos b) {
+        int zx = Math.abs(a.getX() - b.getX()) + 1, zz = Math.abs(a.getZ() - b.getZ()) + 1;
+        return zx >= width(bp, r) && zz >= depth(bp, r);
+    }
+
+    /** Чертёж с "уже существующим" блоком (спавнер): ищем такой блок рядом и выравниваем по нему. */
+    private BlockPos alignToExisting(Minecraft mc, Blueprint bp, int r, BlockPos center) {
+        alignedTo = null;
+        int ex = -1, ey = -1, ez = -1;
+        Block want = null;
+        outer:
+        for (int y = 0; y < bp.sy; y++) for (int z = 0; z < bp.sz; z++) for (int x = 0; x < bp.sx; x++) {
+            Blueprint.Spec s = bp.specAt(x, y, z);
+            if (s != null && s.match() == Blueprint.Match.EXISTING) {
+                ex = x; ey = y; ez = z;
+                want = s.block();
+                break outer;
+            }
+        }
+        if (want == null) return null;
+        BlockPos best = null;
+        double bestD = Double.MAX_VALUE;
+        int cx = center.getX() >> 4, cz = center.getZ() >> 4;
+        for (int dx = -2; dx <= 2; dx++) for (int dz = -2; dz <= 2; dz++) {
+            ChunkAccess ca = mc.level.getChunk(cx + dx, cz + dz, ChunkStatus.FULL, false);
+            if (!(ca instanceof LevelChunk lc)) continue;
+            for (BlockEntity be : lc.getBlockEntities().values()) {
+                if (!be.getBlockState().is(want)) continue;
+                double d = be.getBlockPos().distSqr(center);
+                if (d < bestD && d < 24 * 24) {
+                    bestD = d;
+                    best = be.getBlockPos();
+                }
+            }
+        }
+        if (best == null) return null;
+        alignedTo = best;
+        int[] l = local(bp, ex, ez, r);
+        return best.offset(-l[0], -ey, -l[1]);
+    }
+
+    private void buildCells(Minecraft mc) {
+        Blueprint bp = bp();
+        cells.clear();
+        skipped.clear();
+        recentDone.clear();
+        bpName = bp.name;
+        if (origin == null) return;
+        for (int y = 0; y < bp.sy; y++) {
+            for (int z = 0; z < bp.sz; z++) {
+                for (int x = 0; x < bp.sx; x++) {
+                    Blueprint.Spec s = bp.specAt(x, y, z);
+                    if (s == null) continue;
+                    // змейка: чётные ряды слева направо, нечётные - справа налево (меньше беготни)
+                    int[] l = local(bp, x, z, rot);
+                    BlockState want = Blueprint.rotate(s.state(), rot);
+                    cells.add(new Cell(origin.offset(l[0], y, l[1]), s, want, y, Blueprint.phase(s, want)));
+                }
+            }
+        }
+        // порядок: сначала выкопать (сверху вниз), затем слои снизу вверх, внутри слоя - по фазам и змейкой
+        cells.sort(Comparator.<Cell>comparingInt(c -> c.phase < 0 ? 0 : 1)
+                .thenComparingInt(c -> c.phase < 0 ? -c.layer : c.layer)
+                .thenComparingInt(c -> c.phase)
+                .thenComparingInt(c -> snake(bp, c)));
+        timer = 0;
+        scan(mc, false);
+    }
+
+    private int snake(Blueprint bp, Cell c) {
+        int lz = c.pos.getZ() - origin.getZ(), lx = c.pos.getX() - origin.getX();
+        int w = width(bp, rot);
+        return lz * 1000 + ((lz & 1) == 0 ? lx : w - lx);
+    }
+
+    // ---------- клавиши ----------
+
+    private static boolean pressed(KeyMapping k) {
+        boolean any = false;
+        while (k != null && k.consumeClick()) any = true;
+        return any;
+    }
+
+    private void handleKeys(Minecraft mc) {
+        if (mc.screen != null) return;
+        Blueprint bp = bp();
+        if (pressed(VisualClient.buildRotate)) {
+            rotate.cycle(1);
+            ru.visual.client.module.ModuleManager.markDirty();
+            if (stage == Stage.CONFIRM || stage == Stage.BUILD) recomputeFromZone(mc);
+            say("Поворот: " + rotate.get());
+        }
+        if (pressed(VisualClient.buildCancel)) {
+            switch (stage) {
+                case SELECT_B, CONFIRM, DONE -> { reset(); say("Выбор зоны сброшен"); }
+                case BUILD -> { stage = Stage.CONFIRM; say("Пауза. G - продолжить"); }
+                default -> {}
+            }
+        }
+        if (pressed(VisualClient.buildConfirm)) {
+            BlockPos look = lookBlock(mc);
+            switch (stage) {
+                case SELECT_A -> {
+                    if (look == null) { say("Наведи прицел на блок - первый угол зоны"); return; }
+                    cornerA = look;
+                    stage = Stage.SELECT_B;
+                    say("Первый угол: " + look.toShortString());
+                }
+                case SELECT_B -> {
+                    cornerB = look != null ? look : cornerA;
+                    if (!fits(bp, rot, cornerA, cornerB) && fits(bp, (rot + 1) % 4, cornerA, cornerB)) {
+                        rotate.cycle(1);
+                        say("Повернул чертёж, чтобы влез в зону");
+                    }
+                    recomputeFromZone(mc);
+                    stage = Stage.CONFIRM;
+                }
+                case CONFIRM -> {
+                    stage = Stage.BUILD;
+                    say("Начинаем! Ставь подсвеченный блок");
+                }
+                case BUILD -> {
+                    if (current != null) {
+                        skipped.add(current.pos);
+                        say("Шаг пропущен");
+                        scan(mc, false);
+                    }
+                }
+                case DONE -> reset();
+            }
+        }
+    }
+
+    private void recomputeFromZone(Minecraft mc) {
+        Blueprint bp = bp();
+        rot = rotate.index();
+        if (cornerA == null) return;
+        BlockPos b = cornerB != null ? cornerB : cornerA;
+        origin = originForZone(bp, rot, cornerA, b);
+        BlockPos center = new BlockPos((cornerA.getX() + b.getX()) / 2, (cornerA.getY() + b.getY()) / 2, (cornerA.getZ() + b.getZ()) / 2);
+        BlockPos al = alignToExisting(mc, bp, rot, center);
+        if (al != null) {
+            origin = al.offset(shiftX.asInt(), shiftY.asInt(), shiftZ.asInt());
+            say("Чертёж выровнен по спавнеру");
+        }
+        buildCells(mc);
+    }
+
+    // ---------- тик ----------
 
     @Override
     public void onTick(Minecraft mc) {
         if (mc.level == null || mc.player == null) return;
-        if (lock.get()) {
-            if (anchor == null) {
-                anchor = preview(mc);
-                if (anchor == null) lock.set(false);
-            }
-        } else {
-            anchor = null;
+        handleKeys(mc);
+        Blueprint bp = bp();
+        // сменили чертёж или поворот в меню
+        if ((stage == Stage.CONFIRM || stage == Stage.BUILD || stage == Stage.DONE)
+                && (!bp.name.equals(bpName) || rot != rotate.index())) {
+            recomputeFromZone(mc);
+            if (stage == Stage.DONE) stage = Stage.CONFIRM;
         }
-        BlockPos p = lock.get() && anchor != null ? anchor : preview(mc);
-        if (p == null) {
-            cells.clear();
-            next = null;
-            base = null;
+        if (stage == Stage.SELECT_A || stage == Stage.SELECT_B) {
+            rot = rotate.index();
             return;
         }
-        base = p.offset(shiftX.asInt(), shiftY.asInt(), shiftZ.asInt());
-        if (timer++ % 4 != 0 && !cells.isEmpty()) {
-            pickNext(mc);
-            return;
-        }
+        if (timer++ % 3 == 0) scan(mc, true);
+    }
 
-        Blueprint bp = Blueprints.byName(blueprint.get());
-        int k = rotate.index();
-        cells.clear();
+    private void scan(Minecraft mc, boolean notify) {
+        if (mc.level == null) return;
         total = 0;
-        for (int y = 0; y < bp.sy; y++) {
-            for (int z = 0; z < bp.sz; z++) {
-                for (int x = 0; x < bp.sx; x++) {
-                    Block b = bp.blockAt(x, y, z);
-                    if (b == null) continue;
-                    total++;
-                    int dx, dz;
-                    switch (k) {
-                        case 1 -> { dx = (bp.sz - 1) - z; dz = x; }
-                        case 2 -> { dx = (bp.sx - 1) - x; dz = (bp.sz - 1) - z; }
-                        case 3 -> { dx = z; dz = (bp.sx - 1) - x; }
-                        default -> { dx = x; dz = z; }
-                    }
-                    BlockPos wp = base.offset(dx, y, dz);
-                    BlockState st = mc.level.getBlockState(wp);
-                    if (!ok(b, st)) cells.add(new Cell(wp, b, y, !st.isAir()));
+        done = 0;
+        wrong = 0;
+        existingMissing = 0;
+        Cell prevCurrent = current;
+        current = null;
+        upcoming.clear();
+        int want = ahead.asInt();
+        long now = System.currentTimeMillis();
+        for (Cell c : cells) {
+            BlockState have = mc.level.getBlockState(c.pos);
+            St before = c.st;
+            boolean ok = c.spec.matches(mc.level, c.pos, have, c.want);
+            if (c.spec.match() == Blueprint.Match.EXISTING) {
+                c.st = ok ? St.OK : St.MISSING;
+                if (!ok) existingMissing++;
+                continue;
+            }
+            if (ok) c.st = St.OK;
+            else if (c.spec.match() == Blueprint.Match.AIR) c.st = St.WRONG;
+            else if (have.isAir() || have.canBeReplaced()) c.st = St.MISSING;
+            else c.st = St.WRONG;
+            if (c.spec.match() != Blueprint.Match.AIR) total++;
+            if (c.st == St.OK) {
+                if (c.spec.match() != Blueprint.Match.AIR) done++;
+                if (before != St.OK && notify) recentDone.put(c.pos, now);
+                continue;
+            }
+            if (c.st == St.WRONG) wrong++;
+            if (skipped.contains(c.pos)) continue;
+            if (current == null) current = c;
+            else if (upcoming.size() < want) upcoming.add(c);
+        }
+        if (notify && stage == Stage.BUILD && prevCurrent != null && prevCurrent.st == St.OK && sound.get()) {
+            mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_PLING, 1.8f));
+        }
+        if (stage == Stage.BUILD && current == null && !cells.isEmpty()) {
+            stage = Stage.DONE;
+            if (sound.get()) mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.PLAYER_LEVELUP, 1.0f));
+            mc.player.displayClientMessage(Component.literal("[PepeVisual] Постройка \"" + bp().name + "\" готова!"), false);
+        }
+        recentDone.values().removeIf(t -> now - t > 900);
+    }
+
+    // ---------- материалы ----------
+
+    private Map<String, int[]> materials(Minecraft mc) {
+        Map<String, int[]> need = new LinkedHashMap<>();
+        Map<Item, Integer> have = new HashMap<>();
+        int solidHave = 0;
+        var inv = mc.player.getInventory();
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack st = inv.getItem(i);
+            if (st.isEmpty()) continue;
+            have.merge(st.getItem(), st.getCount(), Integer::sum);
+            if (st.getItem() instanceof BlockItem bi
+                    && bi.getBlock().defaultBlockState().isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)
+                    && !bi.getBlock().defaultBlockState().hasBlockEntity()) solidHave += st.getCount();
+        }
+        for (Cell c : cells) {
+            if (c.st == St.OK || c.spec.match() == Blueprint.Match.AIR || c.spec.match() == Blueprint.Match.EXISTING) continue;
+            String key = c.spec.displayName();
+            int[] v = need.computeIfAbsent(key, k -> new int[]{0, 0});
+            v[0]++;
+            if (c.spec.match() == Blueprint.Match.SOLID) v[1] = solidHave;
+            else {
+                Item it = c.spec.item();
+                if (c.spec.match() != Blueprint.Match.WATER) {
+                    int h = have.getOrDefault(it, 0);
+                    for (Block alt : c.spec.alts()) h += have.getOrDefault(alt.asItem(), 0);
+                    v[1] = h;
+                } else {
+                    v[1] = have.getOrDefault(Items.WATER_BUCKET, 0) > 0 ? 999 : 0;
                 }
             }
         }
-        pickNext(mc);
+        return need;
     }
 
-    private int lowestLayer() {
-        int low = Integer.MAX_VALUE;
-        for (Cell c : cells) low = Math.min(low, c.layer);
-        return low;
-    }
+    // ---------- отрисовка в мире ----------
 
-    private boolean visibleLayer(Cell c, int low) {
-        return switch (layerMode.get()) {
-            case "Все слои" -> true;
-            case "Выбранный слой" -> c.layer == layer.asInt() - 1;
-            default -> c.layer == low;
-        };
-    }
+    @Override
+    public void onWorld(WorldRenderContext ctx, float pt, Minecraft mc) {
+        Blueprint bp = bp();
+        long now = System.currentTimeMillis();
+        float pulse = (float) (0.5 + 0.5 * Math.sin(now / 180.0));
 
-    private void pickNext(Minecraft mc) {
-        next = null;
-        int low = lowestLayer();
-        double best = Double.MAX_VALUE;
+        if (stage == Stage.SELECT_A) {
+            BlockPos look = lookBlock(mc);
+            if (look == null) return;
+            R3D.boxFilled(new AABB(look).inflate(0.01), Draw.withAlpha(0xFFE030, (int) (50 + 40 * pulse)));
+            R3D.blockOutline(look, 0xFFFFE030, 2.5f);
+            int w = width(bp, rot), d = depth(bp, rot);
+            BlockPos o = new BlockPos(look.getX() - w / 2, look.getY() + 1 - bp.ground, look.getZ() - d / 2);
+            R3D.boxOutline(new AABB(o.getX(), o.getY(), o.getZ(), o.getX() + w, o.getY() + bp.sy, o.getZ() + d), 0x90FFFFFF, 1.5f);
+            return;
+        }
+        if (stage == Stage.SELECT_B) {
+            BlockPos look = lookBlock(mc);
+            BlockPos b = look != null ? look : cornerA;
+            boolean fit = fits(bp, rot, cornerA, b) || fits(bp, (rot + 1) % 4, cornerA, b);
+            int col = fit ? 0x40FF90 : 0xFF5050;
+            AABB zone = new AABB(Math.min(cornerA.getX(), b.getX()), Math.min(cornerA.getY(), b.getY()), Math.min(cornerA.getZ(), b.getZ()),
+                    Math.max(cornerA.getX(), b.getX()) + 1, Math.max(cornerA.getY(), b.getY()) + 1, Math.max(cornerA.getZ(), b.getZ()) + 1);
+            R3D.boxFilled(zone.inflate(0.01), Draw.withAlpha(col, 45));
+            R3D.boxOutline(zone.inflate(0.01), 0xFF000000 | col, 2.5f);
+            R3D.blockOutline(cornerA, 0xFFFFE030, 3f);
+            if (look != null) R3D.blockOutline(look, 0xFFFFE030, 3f);
+            return;
+        }
+        if (origin == null) return;
+        int w = width(bp, rot), d = depth(bp, rot);
+        AABB bounds = new AABB(origin.getX(), origin.getY(), origin.getZ(), origin.getX() + w, origin.getY() + bp.sy, origin.getZ() + d);
+        R3D.boxOutline(bounds.inflate(0.02), stage == Stage.DONE ? 0xC040FF90 : 0x80FFFFFF, 1.5f);
+        if (stage == Stage.DONE) return;
+
         Vec3 me = mc.player.position();
+        double r2 = range.get() * range.get();
+        int layer = current != null ? current.layer : -1;
+        boolean all = stage == Stage.CONFIRM || view.is("Всё");
+        int drawn = 0;
         for (Cell c : cells) {
-            if (!visibleLayer(c, low)) continue;
-            double d = Vec3.atCenterOf(c.pos).distanceToSqr(me);
-            if (d < best) {
-                best = d;
-                next = c;
+            if (c.st == St.OK || c == current) continue;
+            if (Vec3.atCenterOf(c.pos).distanceToSqr(me) > r2) continue;
+            if (drawn > 1500) break;
+            if (c.spec.match() == Blueprint.Match.EXISTING) {
+                R3D.blockOutline(c.pos, 0xFFFFA030, 2f);
+                drawn++;
+                continue;
+            }
+            if (c.st == St.WRONG) {
+                AABB box = new AABB(c.pos).deflate(0.03);
+                R3D.boxFilled(box, Draw.withAlpha(0xFF3030, 45));
+                R3D.boxOutline(box, 0xD0FF4040, 1.5f);
+                drawn++;
+                continue;
+            }
+            boolean show = all || (view.is("Слой") && c.layer == layer) || (view.is("Пошагово") && c.layer == layer);
+            if (!show) continue;
+            int alpha = view.is("Пошагово") && stage == Stage.BUILD ? 45 : 110;
+            R3D.boxOutline(new AABB(c.pos).deflate(0.06), Draw.withAlpha(0x40D0FF, alpha), 1.2f);
+            drawn++;
+        }
+        if (stage == Stage.BUILD) {
+            for (int i = 0; i < upcoming.size(); i++) {
+                Cell c = upcoming.get(i);
+                int a = 200 - i * (150 / Math.max(1, upcoming.size()));
+                R3D.boxOutline(new AABB(c.pos).deflate(0.04), Draw.withAlpha(0x40D0FF, a), 2f);
+            }
+            if (current != null) {
+                AABB box = new AABB(current.pos).inflate(0.005);
+                int col = current.st == St.WRONG ? 0xFF4040 : 0xFFE030;
+                R3D.boxFilled(box, Draw.withAlpha(col, (int) (50 + 70 * pulse)));
+                R3D.boxOutline(box, 0xFF000000 | col, 3f);
+                Direction look = Blueprint.lookDirection(current.want);
+                if (look != null && current.st != St.WRONG) R3D.arrow(current.pos, look, 0xFFFFFFFF, 3f);
+                // вертикальный "маяк", чтобы найти блок издалека
+                Vec3 c = Vec3.atCenterOf(current.pos);
+                R3D.line(c.x, c.y + 0.5, c.z, c.x, c.y + 6, c.z, Draw.withAlpha(col, 160), 2f);
             }
         }
+        for (Map.Entry<BlockPos, Long> e : recentDone.entrySet()) {
+            float f = 1f - (now - e.getValue()) / 900f;
+            if (f <= 0) continue;
+            AABB box = new AABB(e.getKey()).inflate(0.01 + 0.08 * (1 - f));
+            R3D.boxFilled(box, Draw.withAlpha(0x40FF90, (int) (110 * f)));
+            R3D.boxOutline(box, Draw.withAlpha(0x40FF90, (int) (255 * f)), 2f);
+        }
+    }
+
+    // ---------- HUD ----------
+
+    private static String key(KeyMapping k) {
+        return k == null ? "?" : k.getTranslatedKeyMessage().getString();
     }
 
     @Override
     public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
-        if (base == null) {
-            Draw.rect(g, 4, 180, 4 + 190, 180 + 24, Draw.bg());
-            Draw.text(g, "BuildHelper: наведи прицел на блок,", 8, 184, Draw.WHITE);
-            Draw.text(g, "куда поставить постройку", 8, 194, Draw.GRAY);
-            return;
-        }
-        Vec3 me = mc.player.position();
-        int low = lowestLayer();
-        int drawn = 0;
-        for (Cell c : cells) {
-            if (!visibleLayer(c, low)) continue;
-            if (Vec3.atCenterOf(c.pos).distanceToSqr(me) > range.get() * range.get()) continue;
-            if (drawn++ > 300) break;
-            double[] r = Projection.boxRect(new AABB(c.pos));
-            if (r == null) continue;
-            int col = c.wrong ? 0xFFFF4040 : 0xAA40D0FF;
-            Draw.outline(g, (int) r[0], (int) r[1], (int) r[2], (int) r[3], col);
-        }
-        if (next != null) {
-            double[] r = Projection.boxRect(new AABB(next.pos));
-            if (r != null) {
-                int x1 = (int) r[0], y1 = (int) r[1], x2 = (int) r[2], y2 = (int) r[3];
-                Draw.outline(g, x1 - 1, y1 - 1, x2 + 1, y2 + 1, 0xFFFFE030);
-                Draw.outline(g, x1, y1, x2, y2, 0xFFFFE030);
-                Draw.textCentered(g, "Поставь: " + next.block.getName().getString(), (x1 + x2) / 2, y1 - 11, 0xFFFFE030);
-            }
-        }
-
-        // Информационная панель
-        Blueprint bp = Blueprints.byName(blueprint.get());
-        Map<Block, Integer> need = new LinkedHashMap<>();
-        for (Cell c : cells) need.merge(c.block, 1, Integer::sum);
-        Map<Item, Integer> have = new HashMap<>();
-        var inv = mc.player.getInventory();
-        for (int i = 0; i < inv.getContainerSize(); i++) {
-            ItemStack st = inv.getItem(i);
-            if (!st.isEmpty()) have.merge(st.getItem(), st.getCount(), Integer::sum);
-        }
-
+        Blueprint bp = bp();
         List<String> lines = new ArrayList<>();
         List<Integer> colors = new ArrayList<>();
-        lines.add(bp.name + "  (" + rotate.get() + ")");
-        colors.add(Draw.accent());
-        lines.add("Осталось: " + cells.size() + " из " + total + " блоков");
-        colors.add(cells.isEmpty() ? 0xFF7CFFB0 : Draw.WHITE);
-        if (cells.isEmpty()) {
-            lines.add("Готово! Постройка завершена.");
-            colors.add(0xFF7CFFB0);
-        }
-        need.entrySet().stream().sorted((a, b) -> b.getValue() - a.getValue()).limit(7).forEach(e -> {
-            Item it = e.getKey().asItem();
-            String name = e.getKey().getName().getString();
-            if (it == Items.AIR) {
-                lines.add(name + " x" + e.getValue() + "  (ведро)");
-                colors.add(Draw.GRAY);
-            } else {
-                int h = have.getOrDefault(it, 0);
-                lines.add(name + " x" + e.getValue() + "  есть " + h);
-                colors.add(h >= e.getValue() ? 0xFF7CFFB0 : 0xFFFF6A6A);
+        String kc = key(VisualClient.buildConfirm), kr = key(VisualClient.buildRotate), kx = key(VisualClient.buildCancel);
+        int ok = 0xFF7CFFB0, bad = 0xFFFF6A6A, yellow = 0xFFFFE030;
+
+        add(lines, colors, bp.name + "  [" + bp.category + "]", Draw.accent());
+        switch (stage) {
+            case SELECT_A -> {
+                add(lines, colors, "Шаг 1/3: выбери зону", Draw.WHITE);
+                add(lines, colors, "[" + kc + "] - первый угол (блок под прицелом)", yellow);
+                add(lines, colors, "[" + kr + "] - повернуть (" + rotate.get() + ")", Draw.GRAY);
+                add(lines, colors, "Размер: " + width(bp, rot) + " x " + depth(bp, rot) + ", высота " + bp.sy, Draw.GRAY);
+                for (String s : wrap(bp.description, 46)) add(lines, colors, s, Draw.GRAY);
             }
-        });
-        lines.add(lock.get() ? "Место зафиксировано: " + base.getX() + " " + base.getY() + " " + base.getZ()
-                : "Проекция следует за прицелом. Включи 'Зафиксировать место'.");
-        colors.add(Draw.GRAY);
-        if (next != null) {
-            lines.add("Далее: " + next.block.getName().getString() + " на " + next.pos.getX() + " " + next.pos.getY() + " " + next.pos.getZ());
-            colors.add(0xFFFFE030);
+            case SELECT_B -> {
+                BlockPos look = lookBlock(mc);
+                BlockPos b = look != null ? look : cornerA;
+                int zx = Math.abs(cornerA.getX() - b.getX()) + 1, zz = Math.abs(cornerA.getZ() - b.getZ()) + 1;
+                boolean fit = fits(bp, rot, cornerA, b) || fits(bp, (rot + 1) % 4, cornerA, b);
+                add(lines, colors, "Шаг 2/3: второй угол зоны", Draw.WHITE);
+                add(lines, colors, "Зона " + zx + " x " + zz + ", нужно " + width(bp, rot) + " x " + depth(bp, rot), fit ? ok : bad);
+                add(lines, colors, "[" + kc + "] - второй угол, [" + kx + "] - отмена", yellow);
+            }
+            case CONFIRM -> {
+                add(lines, colors, "Шаг 3/3: проверь и начни", Draw.WHITE);
+                add(lines, colors, "[" + kc + "] - начать стройку, [" + kr + "] - повернуть, [" + kx + "] - заново", yellow);
+                if (alignedTo != null) add(lines, colors, "Выровнено по спавнеру " + alignedTo.toShortString(), ok);
+                if (existingMissing > 0) add(lines, colors, "Нет спавнера в нужном месте - выдели зону вокруг данжа", bad);
+                if (wrong > 0) add(lines, colors, "Мешают/не так стоят: " + wrong + " блоков (красные)", bad);
+                add(lines, colors, "Уже на месте: " + done + " из " + total, done > 0 ? ok : Draw.GRAY);
+                materialLines(mc, lines, colors, 8);
+                add(lines, colors, "Как строить:", Draw.accent());
+                for (String s : bp.guide) for (String w : wrap(s, 52)) add(lines, colors, w, Draw.GRAY);
+            }
+            case BUILD -> {
+                int pct = total == 0 ? 100 : done * 100 / total;
+                add(lines, colors, "Прогресс: " + done + " / " + total + " (" + pct + "%)", Draw.WHITE);
+                if (current != null) {
+                    boolean dig = current.st == St.WRONG;
+                    String what = current.spec.match() == Blueprint.Match.AIR ? "Убери блок" : dig ? "Замени: " + current.spec.displayName() : "Поставь: " + current.spec.displayName();
+                    add(lines, colors, what + "  (слой " + (current.layer + 1) + "/" + bp.sy + ")", dig ? bad : yellow);
+                    if (dig && current.spec.match() != Blueprint.Match.AIR) {
+                        BlockState have = mc.level.getBlockState(current.pos);
+                        if (have.is(current.want.getBlock())) add(lines, colors, "Блок тот, но повёрнут не так - сломай и поставь заново", bad);
+                        else add(lines, colors, "Сейчас там: " + have.getBlock().getName().getString(), bad);
+                    }
+                    String[] hint = Blueprint.placeHint(current.spec, current.want);
+                    if (hint != null) for (String h : hint) for (String w : wrap(h, 52)) add(lines, colors, w, Draw.WHITE);
+                    BlockPos p = current.pos;
+                    Vec3 me = mc.player.position();
+                    double dist = Vec3.atCenterOf(p).distanceTo(me);
+                    int dy = p.getY() - mc.player.blockPosition().getY();
+                    add(lines, colors, "Где: " + p.getX() + " " + p.getY() + " " + p.getZ() + "  (" + (int) dist + " бл."
+                            + (dy > 0 ? ", выше на " + dy : dy < 0 ? ", ниже на " + (-dy) : "") + ")", Draw.GRAY);
+                    if (!upcoming.isEmpty()) {
+                        StringBuilder sb = new StringBuilder("Дальше: ");
+                        for (int i = 0; i < Math.min(3, upcoming.size()); i++) {
+                            if (i > 0) sb.append(", ");
+                            sb.append(upcoming.get(i).spec.displayName());
+                        }
+                        add(lines, colors, sb.toString(), Draw.GRAY);
+                    }
+                }
+                add(lines, colors, "[" + kc + "] - пропустить шаг, [" + kx + "] - пауза", Draw.GRAY);
+                materialLines(mc, lines, colors, 6);
+            }
+            case DONE -> {
+                add(lines, colors, "Готово! Постройка завершена.", ok);
+                for (String s : bp.guide) for (String w : wrap(s, 52)) add(lines, colors, w, Draw.GRAY);
+                add(lines, colors, "[" + kc + "] - новая постройка", yellow);
+            }
         }
+        if (!message.isEmpty() && System.currentTimeMillis() - messageTime < 3000) add(lines, colors, message, 0xFFFFC040);
 
         int w = 0;
         for (String s : lines) w = Math.max(w, Draw.width(s));
-        int x = 4 + panelX.asInt(), y = 180 + panelY.asInt();
-        Draw.rect(g, x, y, x + w + 10, y + lines.size() * 11 + 6, Draw.bg());
-        Draw.rect(g, x, y, x + 2, y + lines.size() * 11 + 6, Draw.accent());
+        int x = 4 + panelX.asInt(), y = 120 + panelY.asInt();
+        int h = lines.size() * 10 + 6 + (stage == Stage.BUILD ? 5 : 0);
+        Draw.rect(g, x, y, x + w + 12, y + h, Draw.bg());
+        Draw.rect(g, x, y, x + 2, y + h, Draw.accent());
         int yy = y + 4;
         for (int i = 0; i < lines.size(); i++) {
-            Draw.text(g, lines.get(i), x + 6, yy, colors.get(i));
-            yy += 11;
+            Draw.text(g, lines.get(i), x + 7, yy, colors.get(i));
+            yy += 10;
+            if (i == 1 && stage == Stage.BUILD) {
+                int bw = w;
+                float f = total == 0 ? 1f : (float) done / total;
+                Draw.rect(g, x + 7, yy, x + 7 + bw, yy + 3, 0x60000000);
+                Draw.rect(g, x + 7, yy, x + 7 + (int) (bw * f), yy + 3, Draw.accent());
+                yy += 5;
+            }
         }
+
+        // подписи шагов в мире
+        if (stage == Stage.BUILD && current != null) {
+            double[] o = new double[3];
+            Vec3 c = Vec3.atCenterOf(current.pos);
+            if (Projection.project(c.x, c.y + 0.9, c.z, o) && (walls.get() || visible(mc, current.pos))) {
+                String s = "▶ " + current.spec.displayName();
+                int tw = Draw.width(s);
+                Draw.rect(g, (int) o[0] - tw / 2 - 3, (int) o[1] - 2, (int) o[0] + tw / 2 + 3, (int) o[1] + 10, 0xB0000000);
+                Draw.textCentered(g, s, (int) o[0], (int) o[1], current.st == St.WRONG ? bad : yellow);
+            } else {
+                int sw = mc.getWindow().getGuiScaledWidth();
+                Draw.textCentered(g, "Следующий блок у тебя за спиной", sw / 2, mc.getWindow().getGuiScaledHeight() / 2 + 30, yellow);
+            }
+            for (int i = 0; i < upcoming.size(); i++) {
+                Vec3 u = Vec3.atCenterOf(upcoming.get(i).pos);
+                if (Projection.project(u.x, u.y, u.z, o)) Draw.textCentered(g, String.valueOf(i + 2), (int) o[0], (int) o[1] - 4, 0xFF40D0FF);
+            }
+        }
+    }
+
+    private static boolean visible(Minecraft mc, BlockPos pos) {
+        Vec3 eye = mc.player.getEyePosition();
+        BlockHitResult r = mc.level.clip(new net.minecraft.world.level.ClipContext(eye, Vec3.atCenterOf(pos),
+                net.minecraft.world.level.ClipContext.Block.OUTLINE, net.minecraft.world.level.ClipContext.Fluid.NONE, mc.player));
+        return r.getType() == HitResult.Type.MISS || r.getBlockPos().equals(pos) || r.getBlockPos().distManhattan(pos) <= 1;
+    }
+
+    private void materialLines(Minecraft mc, List<String> lines, List<Integer> colors, int limit) {
+        Map<String, int[]> need = materials(mc);
+        if (need.isEmpty()) return;
+        add(lines, colors, "Материалы (нужно / есть):", Draw.accent());
+        Iterator<Map.Entry<String, int[]>> it = need.entrySet().stream()
+                .sorted((a, b) -> b.getValue()[0] - a.getValue()[0]).iterator();
+        int n = 0;
+        while (it.hasNext() && n++ < limit) {
+            Map.Entry<String, int[]> e = it.next();
+            int[] v = e.getValue();
+            boolean enough = v[1] >= v[0];
+            String haveS = v[1] >= 999 ? "есть" : String.valueOf(v[1]);
+            add(lines, colors, (enough ? "✔ " : "✘ ") + e.getKey() + "  " + v[0] + " / " + haveS, enough ? 0xFF7CFFB0 : 0xFFFF6A6A);
+        }
+        if (need.size() > limit) add(lines, colors, "...и ещё " + (need.size() - limit), Draw.GRAY);
+    }
+
+    private static void add(List<String> lines, List<Integer> colors, String s, int c) {
+        lines.add(s);
+        colors.add(c);
+    }
+
+    private static List<String> wrap(String s, int max) {
+        List<String> out = new ArrayList<>();
+        StringBuilder cur = new StringBuilder();
+        for (String word : s.split(" ")) {
+            if (cur.length() + word.length() + 1 > max && cur.length() > 0) {
+                out.add(cur.toString());
+                cur = new StringBuilder("  ");
+            }
+            if (cur.length() > 0 && !cur.toString().equals("  ")) cur.append(' ');
+            cur.append(word);
+        }
+        if (cur.length() > 0) out.add(cur.toString());
+        return out;
     }
 }

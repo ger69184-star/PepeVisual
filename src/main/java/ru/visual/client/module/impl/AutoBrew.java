@@ -1,6 +1,8 @@
 package ru.visual.client.module.impl;
 
+import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.BrewingStandScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -27,6 +29,7 @@ import ru.visual.client.module.Module;
 import ru.visual.client.setting.BoolSetting;
 import ru.visual.client.setting.ModeSetting;
 import ru.visual.client.setting.NumSetting;
+import ru.visual.client.util.Draw;
 import ru.visual.client.util.Navigator;
 
 import java.util.ArrayList;
@@ -41,14 +44,19 @@ import java.util.Comparator;
  * кладёт топливо, бутылки и нужный ингредиент из инвентаря и забирает готовые зелья.
  */
 public class AutoBrew extends Module {
-    private record State(Holder<Potion> potion, boolean splash) {}
+    /** Зелье и форма: 0 - обычное, 1 - взрывное, 2 - оседающее. */
+    private record State(Holder<Potion> potion, int form) {}
 
     private record Step(State in, Item ingredient, State out) {}
 
     private final ModeSetting potion = add(new ModeSetting("Зелье", "Какое зелье варим. ЛКМ - следующее, ПКМ - предыдущее.", "Сила",
-            "Сила", "Скорость", "Исцеление", "Регенерация", "Огнестойкость", "Ночное зрение", "Подводное дыхание"));
-    private final BoolSetting strong = add(new BoolSetting("Усиленное (светящаяся пыль)", "Варить усиленную версию (II). Работает для силы, скорости, исцеления и регенерации.", false));
+            "Сила", "Скорость", "Исцеление", "Регенерация", "Огнестойкость", "Ночное зрение", "Подводное дыхание",
+            "Невидимость", "Прыгучесть", "Медленное падение", "Черепашья мощь", "Яд", "Слабость", "Медлительность", "Вред"));
+    private final BoolSetting strong = add(new BoolSetting("Усиленное (светящаяся пыль)", "Варить усиленную версию (II), если у зелья она есть.", false));
+    private final BoolSetting longer = add(new BoolSetting("Продлённое (редстоун)", "Варить продлённую версию, если у зелья она есть (если включено и 'Усиленное' - выбирается усиленное).", false));
     private final BoolSetting splash = add(new BoolSetting("Взрывное (порох)", "Превращать готовое зелье во взрывное порохом.", false));
+    private final BoolSetting lingering = add(new BoolSetting("Оседающее (драконье дыхание)", "После пороха превращать во оседающее зелье драконьим дыханием.", false));
+    private final BoolSetting panel = add(new BoolSetting("Панель", "Показывать рецепт, нужные ингредиенты и что сейчас делает бот.", true));
     private final BoolSetting collect = add(new BoolSetting("Забирать готовое", "Автоматически забирать готовые зелья в инвентарь.", true));
     private final NumSetting reach = add(new NumSetting("Радиус", "До каких зельеварок бот дотягивается (блоки).", 4.0, 2.0, 4.5, 0.5));
     private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Пауза между действиями в окне зельеварки. Больше - медленнее и безопаснее.", 3, 1, 12, 1));
@@ -70,6 +78,7 @@ public class AutoBrew extends Module {
     private List<BlockPos> standCache = new ArrayList<>();
     private long lastScan = -100;
     private int repaths;
+    private String status = "ищу зельеварки";
 
     public AutoBrew() {
         super("AutoBrew", "Помощь зельеварам: бот сам раскладывает бутылки, ингредиенты и топливо по зельеваркам и забирает зелья.", Category.HELPERS);
@@ -95,47 +104,80 @@ public class AutoBrew extends Module {
 
     private void buildChain() {
         chain.clear();
-        Holder<Potion> base, strongP = null;
+        State water = new State(Potions.WATER, 0), awkward = new State(Potions.AWKWARD, 0);
+        Holder<Potion> base, strongP = null, longP = null;
         Item ingr;
-        boolean canStrong = true;
+        Holder<Potion> pre = null; // промежуточное зелье для "испорченных" рецептов
+        Item preIngr = null;
+        boolean fromWater = false;
         switch (potion.get()) {
-            case "Скорость" -> { base = Potions.SWIFTNESS; strongP = Potions.STRONG_SWIFTNESS; ingr = Items.SUGAR; }
+            case "Скорость" -> { base = Potions.SWIFTNESS; strongP = Potions.STRONG_SWIFTNESS; longP = Potions.LONG_SWIFTNESS; ingr = Items.SUGAR; }
             case "Исцеление" -> { base = Potions.HEALING; strongP = Potions.STRONG_HEALING; ingr = Items.GLISTERING_MELON_SLICE; }
-            case "Регенерация" -> { base = Potions.REGENERATION; strongP = Potions.STRONG_REGENERATION; ingr = Items.GHAST_TEAR; }
-            case "Огнестойкость" -> { base = Potions.FIRE_RESISTANCE; ingr = Items.MAGMA_CREAM; canStrong = false; }
-            case "Ночное зрение" -> { base = Potions.NIGHT_VISION; ingr = Items.GOLDEN_CARROT; canStrong = false; }
-            case "Подводное дыхание" -> { base = Potions.WATER_BREATHING; ingr = Items.PUFFERFISH; canStrong = false; }
-            default -> { base = Potions.STRENGTH; strongP = Potions.STRONG_STRENGTH; ingr = Items.BLAZE_POWDER; }
+            case "Регенерация" -> { base = Potions.REGENERATION; strongP = Potions.STRONG_REGENERATION; longP = Potions.LONG_REGENERATION; ingr = Items.GHAST_TEAR; }
+            case "Огнестойкость" -> { base = Potions.FIRE_RESISTANCE; longP = Potions.LONG_FIRE_RESISTANCE; ingr = Items.MAGMA_CREAM; }
+            case "Ночное зрение" -> { base = Potions.NIGHT_VISION; longP = Potions.LONG_NIGHT_VISION; ingr = Items.GOLDEN_CARROT; }
+            case "Подводное дыхание" -> { base = Potions.WATER_BREATHING; longP = Potions.LONG_WATER_BREATHING; ingr = Items.PUFFERFISH; }
+            case "Невидимость" -> { pre = Potions.NIGHT_VISION; preIngr = Items.GOLDEN_CARROT; base = Potions.INVISIBILITY; longP = Potions.LONG_INVISIBILITY; ingr = Items.FERMENTED_SPIDER_EYE; }
+            case "Прыгучесть" -> { base = Potions.LEAPING; strongP = Potions.STRONG_LEAPING; longP = Potions.LONG_LEAPING; ingr = Items.RABBIT_FOOT; }
+            case "Медленное падение" -> { base = Potions.SLOW_FALLING; longP = Potions.LONG_SLOW_FALLING; ingr = Items.PHANTOM_MEMBRANE; }
+            case "Черепашья мощь" -> { base = Potions.TURTLE_MASTER; strongP = Potions.STRONG_TURTLE_MASTER; longP = Potions.LONG_TURTLE_MASTER; ingr = Items.TURTLE_HELMET; }
+            case "Яд" -> { base = Potions.POISON; strongP = Potions.STRONG_POISON; longP = Potions.LONG_POISON; ingr = Items.SPIDER_EYE; }
+            case "Слабость" -> { fromWater = true; base = Potions.WEAKNESS; longP = Potions.LONG_WEAKNESS; ingr = Items.FERMENTED_SPIDER_EYE; }
+            case "Медлительность" -> { pre = Potions.SWIFTNESS; preIngr = Items.SUGAR; base = Potions.SLOWNESS; strongP = Potions.STRONG_SLOWNESS; longP = Potions.LONG_SLOWNESS; ingr = Items.FERMENTED_SPIDER_EYE; }
+            case "Вред" -> { pre = Potions.HEALING; preIngr = Items.GLISTERING_MELON_SLICE; base = Potions.HARMING; strongP = Potions.STRONG_HARMING; ingr = Items.FERMENTED_SPIDER_EYE; }
+            default -> { base = Potions.STRENGTH; strongP = Potions.STRONG_STRENGTH; longP = Potions.LONG_STRENGTH; ingr = Items.BLAZE_POWDER; }
         }
-        chain.add(new Step(new State(Potions.WATER, false), Items.NETHER_WART, new State(Potions.AWKWARD, false)));
-        chain.add(new Step(new State(Potions.AWKWARD, false), ingr, new State(base, false)));
-        State cur = new State(base, false);
-        if (strong.get() && canStrong && strongP != null) {
-            State s = new State(strongP, false);
+        State cur;
+        if (fromWater) {
+            chain.add(new Step(water, ingr, new State(base, 0)));
+        } else {
+            chain.add(new Step(water, Items.NETHER_WART, awkward));
+            if (pre != null) {
+                chain.add(new Step(awkward, preIngr, new State(pre, 0)));
+                chain.add(new Step(new State(pre, 0), ingr, new State(base, 0)));
+            } else {
+                chain.add(new Step(awkward, ingr, new State(base, 0)));
+            }
+        }
+        cur = new State(base, 0);
+        if (strong.get() && strongP != null) {
+            State s = new State(strongP, 0);
             chain.add(new Step(cur, Items.GLOWSTONE_DUST, s));
             cur = s;
+        } else if (longer.get() && longP != null) {
+            State s = new State(longP, 0);
+            chain.add(new Step(cur, Items.REDSTONE, s));
+            cur = s;
         }
-        if (splash.get()) {
-            State s = new State(cur.potion, true);
+        if (splash.get() || lingering.get()) {
+            State s = new State(cur.potion, 1);
             chain.add(new Step(cur, Items.GUNPOWDER, s));
             cur = s;
+            if (lingering.get()) {
+                State l = new State(cur.potion, 2);
+                chain.add(new Step(cur, Items.DRAGON_BREATH, l));
+                cur = l;
+            }
         }
         finalState = cur;
     }
 
     private static State stateOf(ItemStack st) {
         if (st.isEmpty()) return null;
-        boolean sp = st.is(Items.SPLASH_POTION);
-        if (!sp && !st.is(Items.POTION)) return null;
+        int form;
+        if (st.is(Items.POTION)) form = 0;
+        else if (st.is(Items.SPLASH_POTION)) form = 1;
+        else if (st.is(Items.LINGERING_POTION)) form = 2;
+        else return null;
         PotionContents pc = st.get(DataComponents.POTION_CONTENTS);
         if (pc == null) return null;
         Optional<Holder<Potion>> o = pc.potion();
         if (o.isEmpty()) return null;
-        return new State(o.get(), sp);
+        return new State(o.get(), form);
     }
 
     private static boolean same(State a, State b) {
-        return a != null && b != null && a.splash == b.splash && a.potion.value() == b.potion.value();
+        return a != null && b != null && a.form == b.form && a.potion.value() == b.potion.value();
     }
 
     private Step stepFor(State cur) {
@@ -156,6 +198,7 @@ public class AutoBrew extends Module {
         if (mc.screen instanceof BrewingStandScreen && mc.player.containerMenu instanceof BrewingStandMenu m) {
             openWait = 0;
             nav.stop(mc);
+            status = "работаю в зельеварке";
             handle(mc, m);
             return;
         }
@@ -173,6 +216,7 @@ public class AutoBrew extends Module {
 
         // идём домой после обхода
         if (goingHome) {
+            status = "возвращаюсь на место";
             walkHome(mc);
             return;
         }
@@ -181,6 +225,7 @@ public class AutoBrew extends Module {
             target = pickStand(mc);
             repaths = 0;
             if (target == null) {
+                status = stands(mc).isEmpty() ? "рядом нет зельеварок" : "жду: всё варится";
                 finishRound(mc);
                 return;
             }
@@ -204,6 +249,7 @@ public class AutoBrew extends Module {
             target = null;
             return;
         }
+        status = "иду к зельеварке " + target.toShortString();
         walkToStand(mc);
     }
 
@@ -444,5 +490,72 @@ public class AutoBrew extends Module {
             }
         }
         finishVisit(mc);
+    }
+
+    // ---------- панель ----------
+
+    private static String shortName(Item it) {
+        return new ItemStack(it).getHoverName().getString();
+    }
+
+    private static String potionName(State st) {
+        ItemStack s = new ItemStack(st.form == 2 ? Items.LINGERING_POTION : st.form == 1 ? Items.SPLASH_POTION : Items.POTION);
+        s.set(DataComponents.POTION_CONTENTS, new PotionContents(st.potion));
+        return s.getHoverName().getString();
+    }
+
+    private int countInv(Minecraft mc, Item it) {
+        int n = 0;
+        var inv = mc.player.getInventory();
+        for (int i = 0; i < inv.getContainerSize(); i++) {
+            ItemStack s = inv.getItem(i);
+            if (s.is(it)) n += s.getCount();
+        }
+        return n;
+    }
+
+    private int countPotions(Minecraft mc, State st) {
+        int n = 0;
+        var inv = mc.player.getInventory();
+        for (int i = 0; i < inv.getContainerSize(); i++) if (same(stateOf(inv.getItem(i)), st)) n++;
+        return n;
+    }
+
+    @Override
+    public String info() {
+        return potion.get();
+    }
+
+    @Override
+    public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
+        if (!panel.get() || mc.screen != null) return;
+        buildChain();
+        List<String> lines = new ArrayList<>();
+        List<Integer> cols = new ArrayList<>();
+        lines.add("AutoBrew: " + potionName(finalState));
+        cols.add(Draw.accent());
+        lines.add("Сейчас: " + status);
+        cols.add(Draw.WHITE);
+        int bottles = countPotions(mc, chain.get(0).in);
+        lines.add("Бутылки с водой: " + bottles);
+        cols.add(bottles > 0 ? 0xFF7CFFB0 : 0xFFFF6A6A);
+        int fuel = countInv(mc, Items.BLAZE_POWDER);
+        lines.add("Огненный порошок (топливо): " + fuel);
+        cols.add(fuel > 0 ? 0xFF7CFFB0 : 0xFFFF6A6A);
+        for (Step st : chain) {
+            int have = countInv(mc, st.ingredient);
+            lines.add((have > 0 ? "✔ " : "✘ ") + shortName(st.ingredient) + ": " + have);
+            cols.add(have > 0 ? 0xFF7CFFB0 : 0xFFFF6A6A);
+        }
+        int ready = countPotions(mc, finalState);
+        lines.add("Готово в инвентаре: " + ready + ", зельеварок рядом: " + standCache.size());
+        cols.add(Draw.GRAY);
+        int w = 0;
+        for (String l : lines) w = Math.max(w, Draw.width(l));
+        int sh = mc.getWindow().getGuiScaledHeight();
+        int x = 4, y = sh - 40 - lines.size() * 10;
+        Draw.rect(g, x, y, x + w + 10, y + lines.size() * 10 + 4, Draw.bg());
+        Draw.rect(g, x, y, x + 2, y + lines.size() * 10 + 4, Draw.accent());
+        for (int i = 0; i < lines.size(); i++) Draw.text(g, lines.get(i), x + 6, y + 3 + i * 10, cols.get(i));
     }
 }

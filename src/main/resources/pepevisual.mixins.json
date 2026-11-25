@@ -18,7 +18,8 @@
     "MouseHandlerMixin",
     "FogRendererMixin",
     "ClientLevelDataMixin",
-    "ClientPacketListenerMixin"
+    "ClientPacketListenerMixin",
+    "AbstractContainerScreenAccessor"
   ],
   "injectors": {
     "defaultRequire": 0

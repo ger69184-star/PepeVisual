@@ -14,12 +14,14 @@ import net.minecraft.world.level.block.AttachedStemBlock;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.NetherWartBlock;
+import net.minecraft.world.level.block.SweetBerryBushBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import ru.visual.client.module.Category;
 import ru.visual.client.module.Module;
 import ru.visual.client.setting.BoolSetting;
+import ru.visual.client.setting.ModeSetting;
 import ru.visual.client.setting.NumSetting;
 
 import java.util.HashMap;
@@ -33,6 +35,11 @@ public class AutoFarm extends Module {
     private final BoolSetting fruits = add(new BoolSetting("Тыквы и арбузы", "Ломать тыквы и арбузы, выросшие от стебля (декоративные не трогает).", false));
     private final BoolSetting cane = add(new BoolSetting("Тростник и кактус", "Ломать сахарный тростник и кактус, оставляя нижний блок.", false));
     private final BoolSetting replant = add(new BoolSetting("Пересаживать", "Сажать семена обратно. Семена должны лежать в хотбаре.", true));
+    private final BoolSetting plantEmpty = add(new BoolSetting("Засеивать пустые грядки", "Сажать семена на любую пустую вспаханную землю (и незерский нарост на песок душ) рядом.", false));
+    private final ModeSetting seedMode = add(new ModeSetting("Что сажать", "Что сажать на пустые грядки. Любое - первое, что найдётся в хотбаре.", "Любое",
+            "Любое", "Пшеница", "Морковь", "Картофель", "Свёкла"));
+    private final BoolSetting berries = add(new BoolSetting("Сладкие ягоды", "Собирать спелые ягоды с кустов (куст не ломается).", false));
+    private final BoolSetting boneMeal = add(new BoolSetting("Костная мука", "Удобрять незрелые посевы костной мукой из хотбара.", false));
     private final NumSetting reach = add(new NumSetting("Радиус", "Как далеко от тебя собирать урожай (блоки, не больше досягаемости руки).", 4.0, 1.5, 4.5, 0.5));
     private final BoolSetting rotate = add(new BoolSetting("Смотреть на блок", "Поворачивать голову к блоку перед действием (выглядит естественнее, меньше вопросов от античита).", true));
     private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Пауза между действиями. Больше - медленнее и менее подозрительно.", 3, 1, 12, 1));
@@ -42,6 +49,7 @@ public class AutoFarm extends Module {
     /** Слот хотбара до пересадки (вернём его на следующем тике), -1 - не меняли. */
     private int restoreSlot = -1;
     private long tick;
+    private int harvested;
     private final Map<BlockPos, long[]> pending = new HashMap<>();
     private final Map<BlockPos, Item> pendingItem = new HashMap<>();
 
@@ -126,18 +134,33 @@ public class AutoFarm extends Module {
             return;
         }
 
-        if (restoreSlot >= 0 && pending.isEmpty()) {
-            p.getInventory().setSelectedSlot(restoreSlot);
-            restoreSlot = -1;
-        }
-
         if (replant.get() && tryReplant(mc, p, level)) {
+            cd = delay.asInt();
+            return;
+        }
+        if (berries.get() && tryBerries(mc, p, level)) {
             cd = delay.asInt();
             return;
         }
 
         BlockPos target = findTarget(p, level);
-        if (target == null) return;
+        if (target == null) {
+            if (plantEmpty.get() && tryPlantEmpty(mc, p, level)) {
+                cd = delay.asInt();
+                return;
+            }
+            if (boneMeal.get() && tryBoneMeal(mc, p, level)) {
+                cd = delay.asInt();
+                return;
+            }
+            // работы нет - возвращаем слот, который был выбран до пересадки
+            if (restoreSlot >= 0 && pending.isEmpty()) {
+                p.getInventory().setSelectedSlot(restoreSlot);
+                restoreSlot = -1;
+            }
+            return;
+        }
+        harvested++;
         BlockState st = level.getBlockState(target);
         Item seed = seedFor(st);
         lookAt(p, Vec3.atCenterOf(target));
@@ -172,6 +195,95 @@ public class AutoFarm extends Module {
             }
         }
         return best;
+    }
+
+    @Override
+    public String info() {
+        return harvested > 0 ? String.valueOf(harvested) : null;
+    }
+
+    private boolean selectHotbar(LocalPlayer p, Item item) {
+        Inventory inv = p.getInventory();
+        for (int i = 0; i < 9; i++) {
+            if (inv.getItem(i).is(item)) {
+                if (inv.getSelectedSlot() != i) {
+                    if (restoreSlot < 0) restoreSlot = inv.getSelectedSlot();
+                    inv.setSelectedSlot(i);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Item pickSeed(LocalPlayer p, boolean soul) {
+        if (soul) return hasHotbar(p, Items.NETHER_WART) ? Items.NETHER_WART : null;
+        Item[] order = switch (seedMode.get()) {
+            case "Пшеница" -> new Item[]{Items.WHEAT_SEEDS};
+            case "Морковь" -> new Item[]{Items.CARROT};
+            case "Картофель" -> new Item[]{Items.POTATO};
+            case "Свёкла" -> new Item[]{Items.BEETROOT_SEEDS};
+            default -> new Item[]{Items.WHEAT_SEEDS, Items.CARROT, Items.POTATO, Items.BEETROOT_SEEDS};
+        };
+        for (Item it : order) if (hasHotbar(p, it)) return it;
+        return null;
+    }
+
+    private static boolean hasHotbar(LocalPlayer p, Item it) {
+        for (int i = 0; i < 9; i++) if (p.getInventory().getItem(i).is(it)) return true;
+        return false;
+    }
+
+    private void use(Minecraft mc, LocalPlayer p, BlockPos pos, Direction face) {
+        Vec3 hit = Vec3.atCenterOf(pos).add(face.getStepX() * 0.5, face.getStepY() * 0.5, face.getStepZ() * 0.5);
+        lookAt(p, hit);
+        mc.gameMode.useItemOn(p, InteractionHand.MAIN_HAND, new BlockHitResult(hit, face, pos, false));
+        p.swing(InteractionHand.MAIN_HAND);
+    }
+
+    /** Ближайший блок в радиусе, подходящий под условие. */
+    private BlockPos nearest(LocalPlayer p, ClientLevel level, java.util.function.BiPredicate<BlockPos, BlockState> test) {
+        Vec3 eye = p.getEyePosition();
+        int r = (int) Math.ceil(reach.get());
+        BlockPos base = p.blockPosition();
+        BlockPos best = null;
+        double bestD = Double.MAX_VALUE, max = reach.get() * reach.get();
+        BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+        for (int dx = -r; dx <= r; dx++) for (int dy = -r; dy <= r; dy++) for (int dz = -r; dz <= r; dz++) {
+            m.set(base.getX() + dx, base.getY() + dy, base.getZ() + dz);
+            double d = eye.distanceToSqr(Vec3.atCenterOf(m));
+            if (d > max || d >= bestD) continue;
+            if (test.test(m, level.getBlockState(m))) {
+                bestD = d;
+                best = m.immutable();
+            }
+        }
+        return best;
+    }
+
+    private boolean tryPlantEmpty(Minecraft mc, LocalPlayer p, ClientLevel level) {
+        BlockPos ground = nearest(p, level, (pos, st) -> (st.is(Blocks.FARMLAND) || st.is(Blocks.SOUL_SAND)) && level.getBlockState(pos.above()).isAir());
+        if (ground == null) return false;
+        Item seed = pickSeed(p, level.getBlockState(ground).is(Blocks.SOUL_SAND));
+        if (seed == null || !selectHotbar(p, seed)) return false;
+        use(mc, p, ground, Direction.UP);
+        return true;
+    }
+
+    private boolean tryBerries(Minecraft mc, LocalPlayer p, ClientLevel level) {
+        BlockPos bush = nearest(p, level, (pos, st) -> st.is(Blocks.SWEET_BERRY_BUSH) && st.getValue(SweetBerryBushBlock.AGE) >= 3);
+        if (bush == null) return false;
+        use(mc, p, bush, Direction.UP);
+        harvested++;
+        return true;
+    }
+
+    private boolean tryBoneMeal(Minecraft mc, LocalPlayer p, ClientLevel level) {
+        if (!hasHotbar(p, Items.BONE_MEAL)) return false;
+        BlockPos crop = nearest(p, level, (pos, st) -> st.getBlock() instanceof CropBlock cb && !cb.isMaxAge(st));
+        if (crop == null || !selectHotbar(p, Items.BONE_MEAL)) return false;
+        use(mc, p, crop, Direction.UP);
+        return true;
     }
 
     private boolean tryReplant(Minecraft mc, LocalPlayer p, ClientLevel level) {

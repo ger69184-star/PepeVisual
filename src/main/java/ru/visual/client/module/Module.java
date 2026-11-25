@@ -68,6 +68,9 @@ public abstract class Module {
     /** Каждый кадр при отрисовке HUD (только когда модуль включён). */
     public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {}
 
+    /** Каждый кадр при отрисовке мира (3D-линии/коробки через util.R3D). */
+    public void onWorld(net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext ctx, float partialTick, Minecraft mc) {}
+
     /** Когда ты ударил существо (вызывается только у включённых модулей). */
     public void onAttack(Entity target) {}
 

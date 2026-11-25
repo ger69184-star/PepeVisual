@@ -13,6 +13,6 @@ import ru.visual.client.module.impl.Glow;
 public class MinecraftMixin {
     @Inject(method = "shouldEntityAppearGlowing", at = @At("HEAD"), cancellable = true, require = 0)
     private void pepevisual$glow(Entity entity, CallbackInfoReturnable<Boolean> cir) {
-        if (Glow.shouldGlow(entity)) cir.setReturnValue(true);
+        if (Glow.shouldGlow(entity) || ru.visual.client.module.impl.TargetEsp.shouldGlow(entity)) cir.setReturnValue(true);
     }
 }
