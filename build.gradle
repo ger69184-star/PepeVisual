@@ -1,0 +1,69 @@
+plugins {
+    id 'fabric-loom' version '1.14-SNAPSHOT'
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
+    }
+}
+
+loom {
+    // Mojang-маппинги: не нужен номер сборки Yarn
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+
+    // ---- Вшитые моды оптимизации (jar-in-jar) ----
+    // Версии взяты из файлов референс-клиента (1.21.11). Если какой-то не скачивается -
+    // закомментируй строку или поправь версию на modrinth.com.
+    if (project.findProperty('bundle_optimization') == 'true') {
+        def bundle = { String notation ->
+            modImplementation(notation)
+            include(notation)
+        }
+        bundle 'maven.modrinth:sodium:mc1.21.11-0.8.6-fabric'
+        bundle 'maven.modrinth:lithium:mc1.21.11-0.21.4-fabric'
+        bundle 'maven.modrinth:ferrite-core:8.2.0-fabric'
+        bundle 'maven.modrinth:immediatelyfast:1.14.2+1.21.11-fabric'
+        bundle 'maven.modrinth:entityculling:Dx3xsUER'
+        bundle 'maven.modrinth:moreculling:wOzykoLV'
+        bundle 'maven.modrinth:dynamic-fps:PUe5Asxs'
+    }
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+    it.options.encoding = 'UTF-8'
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+    from('LICENSE') { rename { "${it}_${project.base.archivesName.get()}" } }
+}
