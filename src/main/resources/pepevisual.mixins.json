@@ -17,7 +17,8 @@
     "LightTextureMixin",
     "MouseHandlerMixin",
     "FogRendererMixin",
-    "ClientLevelDataMixin"
+    "ClientLevelDataMixin",
+    "ClientPacketListenerMixin"
   ],
   "injectors": {
     "defaultRequire": 0

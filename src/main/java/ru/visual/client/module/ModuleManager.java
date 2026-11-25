@@ -39,6 +39,7 @@ public final class ModuleManager {
     static void onToggled(Module m) {
         configDirty = true;
         saveTimer = 0;
+        Notifications.onToggle(m);
     }
 
     /** Отметить, что настройки изменились (меню, редактор HUD). */
@@ -69,6 +70,10 @@ public final class ModuleManager {
         MODULES.add(new BlockOutline());
         MODULES.add(new CustomFog());
         MODULES.add(new WorldTime());
+        MODULES.add(new StorageEsp());
+        MODULES.add(new ChinaHat());
+        MODULES.add(new ViewModel());
+        MODULES.add(new AspectRatio());
 
         // ---- HUD ----
         pepe = new PepeBackground();
@@ -85,6 +90,11 @@ public final class ModuleManager {
         MODULES.add(new NearbyPlayers());
         MODULES.add(new Radar());
         MODULES.add(new Keystrokes());
+        MODULES.add(new ServerInfo());
+        MODULES.add(new HealthIndicator());
+        MODULES.add(new HungerHud());
+        MODULES.add(new DurabilityWarning());
+        MODULES.add(new Notifications());
 
         // ---- NoRender ----
         noRender = new NoRender();
@@ -105,6 +115,8 @@ public final class ModuleManager {
 
         // ---- Utility / Optimization ----
         MODULES.add(new AutoRespawn());
+        MODULES.add(new Waypoints());
+        MODULES.add(new DeathInfo());
         optimization = new Optimization();
         MODULES.add(optimization);
 

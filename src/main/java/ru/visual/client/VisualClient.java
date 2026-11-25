@@ -1,6 +1,7 @@
 package ru.visual.client;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -17,6 +18,7 @@ import ru.visual.client.gui.ClickGuiScreen;
 import ru.visual.client.module.ModuleManager;
 import ru.visual.client.module.impl.NoRender;
 import ru.visual.client.module.impl.PepeBackground;
+import ru.visual.client.module.impl.Waypoints;
 import ru.visual.client.util.TargetManager;
 
 public class VisualClient implements ClientModInitializer {
@@ -60,6 +62,9 @@ public class VisualClient implements ClientModInitializer {
                 VanillaHudElements.SUBTITLES,
                 Identifier.fromNamespaceAndPath(MOD_ID, "modules"),
                 ModuleManager::renderHud);
+
+        // Клиентские команды: /pvwp (метки)
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> Waypoints.registerCommands(dispatcher));
 
         // NoRender: скрытие ванильных элементов экрана
         NoRender.registerHudReplacements();
