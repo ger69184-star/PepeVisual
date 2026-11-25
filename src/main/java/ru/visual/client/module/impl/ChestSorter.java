@@ -68,6 +68,7 @@ public class ChestSorter extends Module {
     private final Deque<Click> queue = new ArrayDeque<>();
     private int lastAutoContainer = -1;
     private int moved;
+    private boolean ranQueue;
     private String status = "";
     private long statusTime;
 
@@ -254,6 +255,11 @@ public class ChestSorter extends Module {
     // ---------- тик ----------
 
     @Override
+    public boolean tickOutsideWorld() {
+        return true;
+    }
+
+    @Override
     public void onTick(Minecraft mc) {
         if (mc.player == null || mc.gameMode == null) {
             queue.clear();
@@ -282,8 +288,11 @@ public class ChestSorter extends Module {
             if (c.slot >= m.slots.size()) continue;
             mc.gameMode.handleInventoryMouseClick(c.containerId, c.slot, c.button, c.type, mc.player);
         }
-        if (queue.isEmpty() && !m.getCarried().isEmpty() && ContainerMemory.isStorageMenu(m)) {
-            // на всякий случай: если в курсоре что-то осталось (рассинхрон с сервером) - кладём в пустой слот
+        boolean finishedNow = ranQueue && queue.isEmpty();
+        ranQueue = !queue.isEmpty();
+        if (finishedNow && !m.getCarried().isEmpty() && ContainerMemory.isStorageMenu(m)) {
+            // Только сразу после наших кликов: если в курсоре что-то осталось (рассинхрон с сервером) - кладём в пустой слот.
+            // Раньше это срабатывало всегда и мешало самому переносить предметы мышью.
             for (int i = 0; i < m.slots.size(); i++) {
                 if (m.getSlot(i).getItem().isEmpty()) {
                     mc.gameMode.handleInventoryMouseClick(m.containerId, i, 0, ClickType.PICKUP, mc.player);

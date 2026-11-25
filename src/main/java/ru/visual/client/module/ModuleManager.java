@@ -27,6 +27,17 @@ public final class ModuleManager {
     private static long frame;
     private static boolean configDirty;
     private static int saveTimer;
+    /** Сколько раз модуль уже писал ошибку в лог (чтобы ошибка каждый кадр не забивала лог гигабайтами). */
+    private static final java.util.Map<Module, Integer> ERRORS = new java.util.HashMap<>();
+
+    private static void error(Module m, String where, Throwable t) {
+        int n = ERRORS.merge(m, 1, Integer::sum);
+        if (n <= 3) {
+            ru.visual.client.VisualClient.LOGGER.error("Ошибка в модуле {} ({})", m.name, where, t);
+        } else if (n == 4) {
+            ru.visual.client.VisualClient.LOGGER.error("Модуль {} продолжает падать ({}), дальнейшие ошибки не пишутся", m.name, where);
+        }
+    }
 
     private ModuleManager() {}
 
@@ -75,6 +86,10 @@ public final class ModuleManager {
         MODULES.add(new ChinaHat());
         MODULES.add(new ViewModel());
         MODULES.add(new AspectRatio());
+        MODULES.add(new Arrows());
+        MODULES.add(new SpawnHighlight());
+        MODULES.add(new Explosions());
+        MODULES.add(new Breadcrumbs());
 
         // ---- HUD ----
         pepe = new PepeBackground();
@@ -96,6 +111,9 @@ public final class ModuleManager {
         MODULES.add(new HungerHud());
         MODULES.add(new DurabilityWarning());
         MODULES.add(new Notifications());
+        MODULES.add(new Compass());
+        MODULES.add(new InventoryHud());
+        MODULES.add(new SessionStats());
 
         // ---- NoRender ----
         noRender = new NoRender();
@@ -108,6 +126,8 @@ public final class ModuleManager {
         MODULES.add(new AutoFarm());
         MODULES.add(new DungeonFinder());
         MODULES.add(new BaseFinder());
+        MODULES.add(new AutoTool());
+        MODULES.add(new AutoEat());
 
         // ---- Movement ----
         MODULES.add(new AutoSprint());
@@ -120,6 +140,7 @@ public final class ModuleManager {
         MODULES.add(new AutoRespawn());
         MODULES.add(new Waypoints());
         MODULES.add(new DeathInfo());
+        MODULES.add(new LogoutSpots());
         optimization = new Optimization();
         MODULES.add(optimization);
 
@@ -166,12 +187,13 @@ public final class ModuleManager {
             configDirty = false;
             Config.save();
         }
+        boolean inWorld = mc.player != null && mc.level != null;
         for (Module m : MODULES) {
-            if (m.isEnabled()) {
+            if (m.isEnabled() && (inWorld || m.tickOutsideWorld())) {
                 try {
                     m.onTick(mc);
                 } catch (Throwable t) {
-                    ru.visual.client.VisualClient.LOGGER.error("Ошибка в модуле {} (tick)", m.name, t);
+                    error(m, "tick", t);
                 }
             }
         }
@@ -183,7 +205,7 @@ public final class ModuleManager {
             try {
                 m.onAttack(target);
             } catch (Throwable t) {
-                ru.visual.client.VisualClient.LOGGER.error("Ошибка в модуле {} (attack)", m.name, t);
+                error(m, "attack", t);
             }
         }
     }
@@ -199,7 +221,7 @@ public final class ModuleManager {
                 try {
                     m.onHud(g, delta, mc);
                 } catch (Throwable t) {
-                    ru.visual.client.VisualClient.LOGGER.error("Ошибка в модуле {} (hud)", m.name, t);
+                    error(m, "hud", t);
                 }
                 ru.visual.client.util.Draw.tracking = null;
             }
@@ -217,7 +239,7 @@ public final class ModuleManager {
                 try {
                     m.onWorld(ctx, pt, mc);
                 } catch (Throwable t) {
-                    ru.visual.client.VisualClient.LOGGER.error("Ошибка в модуле {} (world)", m.name, t);
+                    error(m, "world", t);
                 }
             }
         } finally {

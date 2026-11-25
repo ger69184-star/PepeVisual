@@ -9,6 +9,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.event.client.player.ClientPlayerBlockBreakEvents;
 import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.minecraft.client.KeyMapping;
@@ -78,6 +79,12 @@ public class VisualClient implements ClientModInitializer {
         ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
             ChestSorter.onScreenInit(client, screen);
             ScreenEvents.afterRender(screen).register((s, g, mx, my, d) -> ShulkerPreview.onScreenRender(s, g, mx, my));
+        });
+
+        // Сломанный блок: забыть содержимое сундука и посчитать в статистике сессии
+        ClientPlayerBlockBreakEvents.AFTER.register((world, player, pos, state) -> {
+            ContainerMemory.forget(pos);
+            ru.visual.client.module.impl.SessionStats.onBlockBroken();
         });
 
         // Память содержимого сундуков: запоминаем, по какому блоку кликнули

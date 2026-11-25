@@ -33,6 +33,11 @@ public class Zoom extends Module implements Config.DefaultOn {
     }
 
     @Override
+    public boolean tickOutsideWorld() {
+        return true;
+    }
+
+    @Override
     public void onTick(Minecraft mc) {
         boolean down = VisualClient.zoomKey != null && VisualClient.zoomKey.isDown() && mc.screen == null;
         if (down && !zooming) {

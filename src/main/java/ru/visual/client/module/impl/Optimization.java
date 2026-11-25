@@ -71,6 +71,11 @@ public class Optimization extends Module implements Config.DefaultOn {
     }
 
     @Override
+    public boolean tickOutsideWorld() {
+        return true;
+    }
+
+    @Override
     public void onTick(Minecraft mc) {
         if (mc.options == null) return;
         // Фоновый лимит FPS проверяем каждый тик, остальное - раз в секунду

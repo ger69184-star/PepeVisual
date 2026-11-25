@@ -23,6 +23,11 @@ public class DeathInfo extends Module implements Config.DefaultOn {
     }
 
     @Override
+    public boolean tickOutsideWorld() {
+        return true;
+    }
+
+    @Override
     public void onTick(Minecraft mc) {
         if (mc.player == null || mc.level == null) {
             wasDead = false;

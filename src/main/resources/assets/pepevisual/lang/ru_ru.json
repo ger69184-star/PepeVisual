@@ -61,5 +61,15 @@
   "key.pepevisual.build.cancel": "Стройка: отмена / пауза",
   "key.pepevisual.bind.autopearl": "Вкл/выкл AutoPearl (жемчуг за целью)",
   "key.pepevisual.bind.chestsorter": "Вкл/выкл ChestSorter (сортировка)",
-  "key.pepevisual.bind.shulkerpreview": "Вкл/выкл ShulkerPreview (превью шалкеров)"
+  "key.pepevisual.bind.shulkerpreview": "Вкл/выкл ShulkerPreview (превью шалкеров)",
+  "key.pepevisual.bind.arrows": "Вкл/выкл Arrows (стрелки на игроков)",
+  "key.pepevisual.bind.spawnhighlight": "Вкл/выкл SpawnHighlight (места спавна мобов)",
+  "key.pepevisual.bind.explosions": "Вкл/выкл Explosions (таймер динамита, криперы)",
+  "key.pepevisual.bind.breadcrumbs": "Вкл/выкл Breadcrumbs (след пути)",
+  "key.pepevisual.bind.compass": "Вкл/выкл Compass (лента компаса)",
+  "key.pepevisual.bind.inventoryhud": "Вкл/выкл InventoryHUD (инвентарь на экране)",
+  "key.pepevisual.bind.sessionstats": "Вкл/выкл SessionStats (статистика сессии)",
+  "key.pepevisual.bind.autotool": "Вкл/выкл AutoTool (лучший инструмент)",
+  "key.pepevisual.bind.autoeat": "Вкл/выкл AutoEat (авто-еда)",
+  "key.pepevisual.bind.logoutspots": "Вкл/выкл LogoutSpots (где вышел игрок)"
 }

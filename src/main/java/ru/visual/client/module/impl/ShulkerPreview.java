@@ -185,15 +185,16 @@ public class ShulkerPreview extends Module implements Config.DefaultOn {
         pose.translate(x, y);
         pose.scale(sc, sc);
         int tint = p.tint;
-        Draw.rect(g, -1, -1, w + 1, h + 1, Draw.withAlpha(tint, 200));
-        Draw.rect(g, 0, 0, w, h, 0xE0101018);
-        Draw.rect(g, 0, 0, w, 12, Draw.withAlpha(Draw.shade(tint, 0.55f), 230));
+        Draw.shadow(g, 0, 0, w, h, 6, 0x90000000);
+        Draw.round(g, -1, -1, w + 1, h + 1, 6, Draw.withAlpha(tint, 200));
+        Draw.round(g, 0, 0, w, h, 5, 0xF0101018);
+        Draw.roundGradient(g, 0, 0, w, 13, 5, Draw.withAlpha(Draw.shade(tint, 0.7f), 235), Draw.withAlpha(Draw.shade(tint, 0.45f), 235));
         Draw.text(g, p.title, 5, 2, Draw.WHITE);
         if (p.items != null) {
             int total = 0;
             for (int i = 0; i < p.items.size(); i++) {
                 int cx = 4 + (i % cols) * 18, cy = 16 + (i / cols) * 18;
-                Draw.rect(g, cx, cy, cx + 17, cy + 17, 0x40FFFFFF);
+                Draw.round(g, cx, cy, cx + 17, cy + 17, 2, 0x30FFFFFF);
                 ItemStack st = p.items.get(i);
                 if (!st.isEmpty()) {
                     Draw.item(g, st, cx + 1, cy + 1);

@@ -62,7 +62,12 @@ public abstract class Module {
     protected void onEnable() {}
     protected void onDisable() {}
 
-    /** Каждый клиентский тик (только когда модуль включён). */
+    /** true - onTick вызывается и в главном меню (когда мира нет). */
+    public boolean tickOutsideWorld() {
+        return false;
+    }
+
+    /** Каждый клиентский тик (только когда модуль включён и игрок в мире, см. tickOutsideWorld). */
     public void onTick(Minecraft mc) {}
 
     /** Каждый кадр при отрисовке HUD (только когда модуль включён). */

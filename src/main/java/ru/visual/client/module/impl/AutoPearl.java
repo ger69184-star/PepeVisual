@@ -284,6 +284,7 @@ public class AutoPearl extends Module {
     @Override
     public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
         LivingEntity t = target();
+        if (t == null && !mode.is("По клавише (один бросок)")) return; // без цели не мусорим под прицелом
         int sw = mc.getWindow().getGuiScaledWidth(), sh = mc.getWindow().getGuiScaledHeight();
         String state;
         int col;
@@ -304,7 +305,7 @@ public class AutoPearl extends Module {
         String s = "Жемчуг x" + pearls + ": " + state;
         int w = Draw.width(s) + 8;
         int x = sw / 2 - w / 2, y = sh / 2 + 18;
-        Draw.rect(g, x, y, x + w, y + 12, Draw.withAlpha(0, 120));
+        Draw.panel(g, x, y, x + w, y + 12, Draw.bg());
         Draw.text(g, s, x + 4, y + 2, col);
         if (cached != null && preview.get() && t != null) {
             double[] o = new double[3];

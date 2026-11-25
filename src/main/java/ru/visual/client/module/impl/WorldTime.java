@@ -27,6 +27,11 @@ public class WorldTime extends Module {
     }
 
     @Override
+    public boolean tickOutsideWorld() {
+        return true;
+    }
+
+    @Override
     public void onTick(Minecraft mc) {
         if (!mode.is("Цикл")) return;
         if (cycleTime < 0) cycleTime = hourToTicks(hour.get());

@@ -45,6 +45,11 @@ public class ServerInfo extends HudModule {
     }
 
     @Override
+    public boolean tickOutsideWorld() {
+        return true;
+    }
+
+    @Override
     public void onTick(Minecraft mc) {
         if (mc.level != lastLevel) {
             if (lastLevel == null || mc.level == null) {
