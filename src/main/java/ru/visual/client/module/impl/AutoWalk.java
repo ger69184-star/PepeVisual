@@ -17,6 +17,7 @@ public class AutoWalk extends Module {
 
     @Override
     protected void onDisable() {
-        Minecraft.getInstance().options.keyUp.setDown(false);
+        Minecraft mc = Minecraft.getInstance();
+        ru.visual.client.util.Keys.release(mc, mc.options.keyUp);
     }
 }

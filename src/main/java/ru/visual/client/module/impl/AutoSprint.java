@@ -20,6 +20,7 @@ public class AutoSprint extends Module implements Config.DefaultOn {
 
     @Override
     protected void onDisable() {
-        Minecraft.getInstance().options.keySprint.setDown(false);
+        Minecraft mc = Minecraft.getInstance();
+        ru.visual.client.util.Keys.release(mc, mc.options.keySprint);
     }
 }

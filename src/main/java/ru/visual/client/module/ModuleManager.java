@@ -22,6 +22,8 @@ public final class ModuleManager {
     public static HitAnimations hitAnimations;
     public static CustomCrosshair crosshair;
     public static PepeBackground pepe;
+    public static TotemPops totemPops;
+    public static ChatTimestamps chatTimestamps;
 
     private static long frame;
     private static boolean configDirty;
@@ -104,6 +106,7 @@ public final class ModuleManager {
         MODULES.add(new ServerInfo());
         MODULES.add(new HungerHud());
         MODULES.add(new DurabilityWarning());
+        MODULES.add(new LowHealthWarning());
         MODULES.add(new Notifications());
         MODULES.add(new Compass());
         MODULES.add(new InventoryHud());
@@ -126,6 +129,7 @@ public final class ModuleManager {
         // ---- Movement ----
         MODULES.add(new AutoSprint());
         MODULES.add(new AutoWalk());
+        MODULES.add(new InventoryMove());
         MODULES.add(new FreeLook());
         MODULES.add(new AutoWindCharge());
         MODULES.add(new AutoPearl());
@@ -135,6 +139,11 @@ public final class ModuleManager {
         MODULES.add(new Waypoints());
         MODULES.add(new DeathInfo());
         MODULES.add(new LogoutSpots());
+
+        totemPops = new TotemPops();
+        MODULES.add(totemPops);
+        chatTimestamps = new ChatTimestamps();
+        MODULES.add(chatTimestamps);
 
         // ---- Optimization: каждая настройка - отдельная кнопка ----
         MODULES.addAll(GraphicsTweak.createAll());

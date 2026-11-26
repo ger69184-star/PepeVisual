@@ -159,14 +159,13 @@ public class ClickGuiScreen extends Screen {
         Draw.text(g, " Visual", x0 + 12 + Draw.widthBold("Pepe"), y0 + 12, C_TEXT);
 
         int cx = (x0 + x1) / 2;
-        int bob = (int) Math.round(Math.sin(now / 520.0) * 1.5);
         PepeBackground pepe = ModuleManager.pepe;
         if (pepe != null && pepe.isEnabled()) {
-            // Лягушонок в меню один - по центру шапки. Размер и прозрачность берутся из настроек PepeBackground
-            // (по умолчанию 110 px / 0.35 -> 28 px и полностью видимый логотип).
-            int ps = Mth.clamp(pepe.sizePx() / 4, 18, 30);
-            double pa = Mth.clamp(pepe.opacity() * 2.85, 0.2, 1.0);
-            Draw.shadow(g, cx - 5, y0 + 11, cx + 5, y0 + 21, 12, Draw.withAlpha(accent, (int) (0x55 * pa)));
+            // Лягушонок в меню один - по центру шапки, размер/прозрачность/покачивание из настроек модуля Pepe
+            int bob = pepe.bobbing() ? (int) Math.round(Math.sin(now / 520.0) * 1.5) : 0;
+            int ps = pepe.sizePx();
+            double pa = pepe.opacity();
+            if (pepe.glow()) Draw.shadow(g, cx - 5, y0 + 11, cx + 5, y0 + 21, 12, Draw.withAlpha(accent, (int) (0x55 * pa)));
             PepeBackground.draw(g, cx - ps / 2, y0 + (TOP - ps) / 2 + bob, ps, pa);
         }
 

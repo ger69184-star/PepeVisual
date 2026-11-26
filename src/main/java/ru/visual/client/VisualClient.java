@@ -21,7 +21,6 @@ import org.slf4j.LoggerFactory;
 import ru.visual.client.gui.ClickGuiScreen;
 import ru.visual.client.module.ModuleManager;
 import ru.visual.client.module.impl.NoRender;
-import ru.visual.client.module.impl.PepeBackground;
 import ru.visual.client.module.impl.Waypoints;
 import ru.visual.client.module.impl.ChestSorter;
 import ru.visual.client.module.impl.ShulkerPreview;
@@ -94,12 +93,6 @@ public class VisualClient implements ClientModInitializer {
         });
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> ModuleManager.shutdown());
-
-        // Лягушонок на заднем плане: рисуется раньше всех элементов HUD
-        HudElementRegistry.attachElementBefore(
-                VanillaHudElements.MISC_OVERLAYS,
-                Identifier.fromNamespaceAndPath(MOD_ID, "pepe_background"),
-                PepeBackground::renderBackground);
 
         // Наш HUD / ESP (рисуется поверх ванильного HUD)
         HudElementRegistry.attachElementAfter(

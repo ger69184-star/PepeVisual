@@ -66,9 +66,15 @@ public class StorageEsp extends Module {
                 for (BlockEntity be : chunk.getBlockEntities().values()) {
                     Found f = classify(be);
                     if (f != null) out.add(f);
-                    if (out.size() > 400) break;
                 }
             }
+        }
+        // раньше лимит 400 обрывал только один чанк (break из внутреннего цикла), и на базах список рос до тысяч.
+        // Теперь оставляем 400 БЛИЖАЙШИХ.
+        if (out.size() > 400) {
+            BlockPos me = mc.player.blockPosition();
+            out.sort(java.util.Comparator.comparingDouble(f -> f.pos().distSqr(me)));
+            out = new ArrayList<>(out.subList(0, 400));
         }
         found = out;
     }

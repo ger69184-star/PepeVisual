@@ -19,6 +19,7 @@
     "FogRendererMixin",
     "ClientLevelDataMixin",
     "ClientPacketListenerMixin",
+    "ChatComponentMixin",
     "AbstractContainerScreenAccessor"
   ],
   "injectors": {

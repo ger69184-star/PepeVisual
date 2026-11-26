@@ -57,6 +57,7 @@ public class SpawnHighlight extends Module {
         List<Spot> out = new ArrayList<>();
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
         BlockPos.MutableBlockPos below = new BlockPos.MutableBlockPos();
+        scan:
         for (int dx = -r; dx <= r; dx++) {
             for (int dz = -r; dz <= r; dz++) {
                 if (dx * dx + dz * dz > r * r) continue;
@@ -68,7 +69,7 @@ public class SpawnHighlight extends Module {
                     boolean always = !skyLit || level.getBrightness(LightLayer.SKY, p) == 0;
                     if (!always && !night.get()) continue;
                     out.add(new Spot(p.immutable(), always));
-                    if (out.size() > 3000) break;
+                    if (out.size() > 3000) break scan; // раньше break выходил только из одного столбца
                 }
             }
         }

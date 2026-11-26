@@ -67,10 +67,14 @@ public class NoRender extends Module implements Config.DefaultOn {
         replace(VanillaHudElements.FOOD_BAR, () -> nr.foodBar.get());
         replace(VanillaHudElements.EXPERIENCE_LEVEL, () -> nr.xpLevel.get());
 
-        // Ванильный прицел скрывается, когда включён свой (независимо от NoRender)
+        // Свой прицел рисуется ВМЕСТО ванильного - на его месте и при тех же условиях (не от 3-го лица и т.д.)
         HudElementRegistry.replaceElement(VanillaHudElements.CROSSHAIR, original -> (graphics, delta) -> {
             CustomCrosshair c = ModuleManager.crosshair;
-            if (c != null && c.isEnabled() && c.hideVanilla.get()) return;
+            if (c != null && c.isEnabled()) {
+                Minecraft mc = Minecraft.getInstance();
+                if (!mc.options.hideGui) c.renderInPlace(graphics, delta);
+                return;
+            }
             original.render(graphics, delta);
         });
     }
