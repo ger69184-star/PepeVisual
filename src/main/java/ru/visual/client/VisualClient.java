@@ -64,6 +64,7 @@ public class VisualClient implements ClientModInitializer {
             }
             TargetManager.tick(mc);
             ContainerMemory.tick(mc);
+            ru.visual.client.util.HeldTracker.tick(mc);
             ModuleManager.tick(mc);
             // нажатия клавиш стройки, когда BuildHelper выключен, не копим
             while (buildConfirm.consumeClick()) {}

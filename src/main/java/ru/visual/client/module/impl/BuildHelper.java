@@ -89,6 +89,7 @@ public class BuildHelper extends Module {
     private final NumSetting shiftZ = add(new NumSetting("Сдвиг Z", "Подгонка положения по Z (блоки).", 0, -10, 10, 1));
     private final NumSetting range = add(new NumSetting("Дальность показа", "Дальше этого расстояния клетки не рисуются (блоки).", 48, 8, 128, 4));
     private final BoolSetting sound = add(new BoolSetting("Звук шага", "Короткий звук, когда шаг выполнен.", true));
+    private final BoolSetting autoSlot = add(new BoolSetting("Авто-выбор блока", "Когда шаг сменился, сам берёт в руку нужный блок из хотбара.", true));
     private final BoolSetting walls = add(new BoolSetting("Метка сквозь стены", "Подпись текущего шага видна сквозь блоки.", true));
     private final NumSetting panelX = add(new NumSetting("Панель X", "Смещение информационной панели по горизонтали.", 0, -500, 500, 1));
     private final NumSetting panelY = add(new NumSetting("Панель Y", "Смещение информационной панели по вертикали.", 0, -300, 300, 1));
@@ -103,6 +104,7 @@ public class BuildHelper extends Module {
     private final Set<BlockPos> skipped = new HashSet<>();
     private final Map<BlockPos, Long> recentDone = new HashMap<>();
     private Cell current;
+    private BlockPos autoSlotFor;
     private final List<Cell> upcoming = new ArrayList<>();
     private int total, done, wrong, existingMissing;
     private int timer;
@@ -141,6 +143,7 @@ public class BuildHelper extends Module {
         recentDone.clear();
         upcoming.clear();
         current = null;
+        autoSlotFor = null;
     }
 
     private Blueprint bp() {
@@ -353,6 +356,43 @@ public class BuildHelper extends Module {
             return;
         }
         if (timer++ % 3 == 0) scan(mc, true);
+        if (stage == Stage.BUILD && autoSlot.get() && mc.screen == null) pickSlot(mc);
+    }
+
+    /** Берёт в руку предмет для текущего шага (один раз на шаг, чтобы не мешать игроку). */
+    private void pickSlot(Minecraft mc) {
+        if (current == null || current.st != St.MISSING) return;
+        if (current.pos.equals(autoSlotFor)) return;
+        autoSlotFor = current.pos;
+        var inv = mc.player.getInventory();
+        if (fits(current.spec, inv.getItem(inv.getSelectedSlot()))) return;
+        for (int i = 0; i < 9; i++) {
+            if (fits(current.spec, inv.getItem(i))) {
+                inv.setSelectedSlot(i);
+                return;
+            }
+        }
+    }
+
+    private static boolean sameItem(Blueprint.Spec spec, Item it) {
+        if (it == spec.item()) return true;
+        Block b = spec.block();
+        if (b == net.minecraft.world.level.block.Blocks.FARMLAND && (it == Items.DIRT || it == Items.GRASS_BLOCK)) return true;
+        for (Block alt : spec.alts()) if (alt.asItem() == it) return true;
+        return false;
+    }
+
+    private static boolean fits(Blueprint.Spec spec, ItemStack st) {
+        if (st.isEmpty()) return false;
+        return switch (spec.match()) {
+            case AIR, EXISTING -> false;
+            case WATER -> st.is(Items.WATER_BUCKET);
+            case LAVA -> st.is(Items.LAVA_BUCKET);
+            case SOLID -> st.getItem() instanceof BlockItem bi
+                    && bi.getBlock().defaultBlockState().isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO)
+                    && !bi.getBlock().defaultBlockState().hasBlockEntity();
+            default -> sameItem(spec, st.getItem());
+        };
     }
 
     private void scan(Minecraft mc, boolean notify) {
@@ -424,12 +464,13 @@ public class BuildHelper extends Module {
             if (c.spec.match() == Blueprint.Match.SOLID) v[1] = solidHave;
             else {
                 Item it = c.spec.item();
-                if (c.spec.match() != Blueprint.Match.WATER) {
+                if (c.spec.match() != Blueprint.Match.WATER && c.spec.match() != Blueprint.Match.LAVA) {
                     int h = have.getOrDefault(it, 0);
-                    for (Block alt : c.spec.alts()) h += have.getOrDefault(alt.asItem(), 0);
+                    for (Block alt : c.spec.alts()) if (alt.asItem() != it) h += have.getOrDefault(alt.asItem(), 0);
+                    if (c.spec.block() == net.minecraft.world.level.block.Blocks.FARMLAND) h += have.getOrDefault(Items.DIRT, 0) + have.getOrDefault(Items.GRASS_BLOCK, 0);
                     v[1] = h;
                 } else {
-                    v[1] = have.getOrDefault(Items.WATER_BUCKET, 0) > 0 ? 999 : 0;
+                    v[1] = have.getOrDefault(it, 0) > 0 ? 999 : 0;
                 }
             }
         }

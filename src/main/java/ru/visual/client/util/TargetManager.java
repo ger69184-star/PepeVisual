@@ -72,6 +72,31 @@ public final class TargetManager {
         }
     }
 
+    /**
+     * Игрок под прицелом на большой дистанции (ванильный прицел ловит существ только в радиусе удара).
+     * Сквозь стены тоже - чтобы можно было посмотреть, что у человека в руках, издалека.
+     */
+    public static net.minecraft.world.entity.player.Player aimedPlayer(Minecraft mc, double range) {
+        if (mc.player == null || mc.level == null) return null;
+        net.minecraft.world.phys.Vec3 eye = mc.player.getEyePosition();
+        net.minecraft.world.phys.Vec3 end = eye.add(mc.player.getViewVector(1f).scale(range));
+        net.minecraft.world.entity.player.Player best = null;
+        double bestD = Double.MAX_VALUE;
+        for (net.minecraft.world.entity.player.Player p : mc.level.players()) {
+            if (p == mc.player || p.isRemoved() || p.isSpectator()) continue;
+            double d = p.distanceToSqr(mc.player);
+            if (d > range * range) continue;
+            // чем дальше игрок, тем шире "зона попадания": издалека в 0.6 блока не прицелиться
+            double grow = 0.15 + Math.sqrt(d) * 0.012;
+            var hit = p.getBoundingBox().inflate(grow).clip(eye, end);
+            if (hit.isPresent() && d < bestD) {
+                bestD = d;
+                best = p;
+            }
+        }
+        return best;
+    }
+
     public static LivingEntity get() {
         return target;
     }

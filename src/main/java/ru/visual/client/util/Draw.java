@@ -267,6 +267,64 @@ public final class Draw {
         }
     }
 
+    /**
+     * Верхний край ванильных полосок над хотбаром (сердца, броня, голод, воздух) в координатах GUI.
+     * HUD-элементы по умолчанию ставятся выше этой линии, чтобы не налезать на хотбар.
+     */
+    public static int hudTop(Minecraft mc) {
+        int h = mc.getWindow().getGuiScaledHeight();
+        if (mc.player == null || mc.options.hideGui) return h;
+        if (mc.player.isSpectator()) return h - 24;
+        if (mc.player.isCreative()) return h - 30;
+        float hp = mc.player.getMaxHealth() + mc.player.getAbsorptionAmount();
+        int rows = Math.max(1, (int) Math.ceil(hp / 20f));
+        int rowH = Math.max(10 - (rows - 2), 3);
+        int top = h - 39 - (rows - 1) * rowH;
+        if (mc.player.getArmorValue() > 0) top -= 10;
+        // справа: голод (h-39) и пузырьки воздуха / сердца транспорта (h-49)
+        if (mc.player.getAirSupply() < mc.player.getMaxAirSupply() || mc.player.isEyeInFluid(net.minecraft.tags.FluidTags.WATER)
+                || mc.player.getVehicle() instanceof net.minecraft.world.entity.LivingEntity) top = Math.min(top, h - 49);
+        return top - 1;
+    }
+
+    /** Подпись-"таблетка": текст по центру cx на тёмной скруглённой подложке. Возвращает {x1, y1, x2, y2}. */
+    public static int[] pill(GuiGraphics g, String s, int cx, int y, int textColor) {
+        int tw = width(s);
+        int x1 = cx - tw / 2 - 3, x2 = cx + (tw + 1) / 2 + 3;
+        int a = textColor >>> 24;
+        round(g, x1, y - 2, x2, y + 10, 3, withAlpha(0x0E0E14, a * 0xA8 / 255));
+        text(g, s, cx - tw / 2, y, textColor);
+        return new int[]{x1, y - 2, x2, y + 10};
+    }
+
+    /** Уголки рамки (аккуратнее сплошного прямоугольника). */
+    public static void corners(GuiGraphics g, int x1, int y1, int x2, int y2, int col) {
+        int lx = Math.max(2, (x2 - x1) / 3), ly = Math.max(2, (y2 - y1) / 3);
+        g.fill(x1, y1, x1 + lx, y1 + 1, col);
+        g.fill(x1, y1, x1 + 1, y1 + ly, col);
+        g.fill(x2 - lx, y1, x2, y1 + 1, col);
+        g.fill(x2 - 1, y1, x2, y1 + ly, col);
+        g.fill(x1, y2 - 1, x1 + lx, y2, col);
+        g.fill(x1, y2 - ly, x1 + 1, y2, col);
+        g.fill(x2 - lx, y2 - 1, x2, y2, col);
+        g.fill(x2 - 1, y2 - ly, x2, y2, col);
+        track(x1, y1, x2, y2);
+    }
+
+    /** Масштабированный рисунок вокруг точки (cx, cy). */
+    public static void scaled(GuiGraphics g, float scale, float cx, float cy, Runnable r) {
+        if (Math.abs(scale - 1f) < 0.01f) {
+            r.run();
+            return;
+        }
+        g.pose().pushMatrix();
+        g.pose().translate(cx, cy);
+        g.pose().scale(scale, scale);
+        g.pose().translate(-cx, -cy);
+        r.run();
+        g.pose().popMatrix();
+    }
+
     /** Цвет здоровья: зелёный -> красный. */
     public static int healthColor(float hp, float max) {
         float f = Mth.clamp(hp / Math.max(1f, max), 0f, 1f);

@@ -59,6 +59,7 @@ public class DungeonFinder extends Module {
     private final BoolSetting list = add(new BoolSetting("Список ближайших", "Выводит сверху экрана координаты ближайших спавнеров.", true));
     private final BoolSetting lines = add(new BoolSetting("Линии к спавнерам", "Пунктирные линии от центра экрана к спавнерам.", true));
     private final BoolSetting notify = add(new BoolSetting("Уведомление в чат", "Пишет в чат, когда найден новый спавнер.", true));
+    private final BoolSetting zone = add(new BoolSetting("Зона спавна", "3D-рамка зоны появления мобов (9x3x9) и круг активации 16 блоков у ближних спавнеров - удобно строить ферму.", true));
     private final NumSetting range = add(new NumSetting("Радиус", "Радиус поиска в блоках (ищет только в уже загруженных чанках).", 128, 32, 256, 16));
 
     private List<Found> found = new ArrayList<>();
@@ -144,6 +145,28 @@ public class DungeonFinder extends Module {
     }
 
     @Override
+    public void onWorld(net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext ctx, float pt, Minecraft mc) {
+        Vec3 me = mc.player.position();
+        int n = 0;
+        for (Found f : found) {
+            double d = Vec3.atCenterOf(f.pos).distanceTo(me);
+            if (d > 96 || ++n > 120) continue;
+            int color = f.dungeon ? 0xFFFF9020 : f.kind.color;
+            AABB box = new AABB(f.pos).deflate(0.02);
+            ru.visual.client.util.R3D.boxFilled(box, Draw.withAlpha(color, 40));
+            ru.visual.client.util.R3D.boxOutline(box, color, 2f);
+            boolean spawner = f.kind == Kind.SPAWNER;
+            if (zone.get() && spawner && d < 32) {
+                BlockPos p = f.pos;
+                AABB area = new AABB(p.getX() - 4, p.getY() - 1, p.getZ() - 4, p.getX() + 5, p.getY() + 2, p.getZ() + 5);
+                ru.visual.client.util.R3D.boxOutline(area, Draw.withAlpha(color, 140), 1.2f);
+                ru.visual.client.util.R3D.circle(p.getX() + 0.5, me.y + 0.05, p.getZ() + 0.5, 16, 64,
+                        Draw.withAlpha(d <= 16 ? 0x55FF77 : 0xFF5555, 150), 1.5f);
+            }
+        }
+    }
+
+    @Override
     public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
         int w = mc.getWindow().getGuiScaledWidth();
         int h = mc.getWindow().getGuiScaledHeight();
@@ -163,11 +186,10 @@ public class DungeonFinder extends Module {
             double[] r = Projection.boxRect(new AABB(f.pos));
             if (r == null) continue;
             int x1 = (int) r[0], y1 = (int) r[1], x2 = (int) r[2], y2 = (int) r[3];
-            Draw.outline(g, x1 - 1, y1 - 1, x2 + 1, y2 + 1, 0xFF000000);
-            Draw.outline(g, x1, y1, x2, y2, color);
+            Draw.corners(g, x1, y1, x2, y2, color);
             if ((spawner || dist < 40) && labels++ < 40) {
                 String name = f.dungeon ? "Данж (спавнер)" : f.kind.title;
-                Draw.textCentered(g, name + " " + (int) dist + "м", (x1 + x2) / 2, y1 - 11, color);
+                Draw.pill(g, name + " " + (int) dist + "м", (x1 + x2) / 2, y1 - 12, color);
             }
         }
 
@@ -175,15 +197,13 @@ public class DungeonFinder extends Module {
             List<Found> near = new ArrayList<>();
             for (Found f : found) if (f.kind == Kind.SPAWNER || f.kind == Kind.TRIAL) near.add(f);
             near.sort(Comparator.comparingDouble(f -> Vec3.atCenterOf(f.pos).distanceToSqr(me)));
-            int y = 4;
+            int y = 22; // ниже боссбара не налезаем на его заголовок
             for (int i = 0; i < Math.min(3, near.size()); i++) {
                 Found f = near.get(i);
                 String s = (f.dungeon ? "Данж: " : "Спавнер: ") + f.pos.getX() + " " + f.pos.getY() + " " + f.pos.getZ()
                         + " (" + (int) Vec3.atCenterOf(f.pos).distanceTo(me) + "м)";
-                int tw = Draw.width(s);
-                Draw.rect(g, w / 2 - tw / 2 - 3, y - 1, w / 2 + tw / 2 + 3, y + 10, 0x90000000);
-                Draw.textCentered(g, s, w / 2, y, f.dungeon ? 0xFFFF9020 : 0xFFFF3FA0);
-                y += 12;
+                Draw.pill(g, s, w / 2, y + 2, f.dungeon ? 0xFFFF9020 : 0xFFFF3FA0);
+                y += 14;
             }
         }
     }

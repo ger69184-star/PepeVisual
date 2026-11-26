@@ -79,5 +79,6 @@
   "key.pepevisual.bind.inventorymove": "PV: Ходьба в инвентаре",
   "key.pepevisual.bind.totempops": "PV: Счётчик тотемов",
   "key.pepevisual.bind.chattimestamps": "PV: Время в чате",
-  "key.pepevisual.bind.lowhealth": "PV: Мало здоровья"
+  "key.pepevisual.bind.lowhealth": "PV: Мало здоровья",
+  "key.pepevisual.bind.hotbarview": "PV: Хотбар игрока"
 }

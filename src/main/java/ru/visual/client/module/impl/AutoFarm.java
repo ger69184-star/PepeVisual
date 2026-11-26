@@ -20,6 +20,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import ru.visual.client.module.Category;
 import ru.visual.client.module.Module;
+import net.minecraft.world.phys.AABB;
 import ru.visual.client.setting.BoolSetting;
 import ru.visual.client.setting.ModeSetting;
 import ru.visual.client.setting.NumSetting;
@@ -42,6 +43,7 @@ public class AutoFarm extends Module {
     private final BoolSetting boneMeal = add(new BoolSetting("Костная мука", "Удобрять незрелые посевы костной мукой из хотбара.", false));
     private final NumSetting reach = add(new NumSetting("Радиус", "Как далеко от тебя собирать урожай (блоки, не больше досягаемости руки).", 4.0, 1.5, 4.5, 0.5));
     private final BoolSetting rotate = add(new BoolSetting("Смотреть на блок", "Поворачивать голову к блоку перед действием (выглядит естественнее, меньше вопросов от античита).", true));
+    private final BoolSetting show = add(new BoolSetting("Показывать зону", "3D: круг досягаемости, созревшие растения в радиусе подсвечены, ломаемый блок - ярче.", true));
     private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Пауза между действиями. Больше - медленнее и менее подозрительно.", 3, 1, 12, 1));
 
     private BlockPos breaking;
@@ -332,5 +334,30 @@ public class AutoFarm extends Module {
             return true;
         }
         return false;
+    }
+
+    private int ripeTimer;
+    private java.util.List<BlockPos> ripe = new java.util.ArrayList<>();
+
+    @Override
+    public void onWorld(net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext ctx, float pt, Minecraft mc) {
+        if (!show.get() || mc.player == null || mc.level == null) return;
+        Vec3 pp = mc.player.getPosition(pt);
+        ru.visual.client.util.R3D.circle(pp.x, pp.y + 0.05, pp.z, reach.get(), 48, 0x8055FF77, 1.4f);
+        // список созревших обновляем раз в 10 тиков: 9x9x5 блоков каждый кадр - лишняя нагрузка
+        if (ripeTimer++ % 10 == 0) {
+            java.util.List<BlockPos> out = new java.util.ArrayList<>();
+            int r = (int) Math.ceil(reach.get());
+            BlockPos base = mc.player.blockPosition();
+            for (BlockPos q : BlockPos.betweenClosed(base.offset(-r, -2, -r), base.offset(r, 2, r))) {
+                if (harvestable(mc.level, mc.level.getBlockState(q), q)) out.add(q.immutable());
+                if (out.size() >= 64) break;
+            }
+            ripe = out;
+        }
+        for (BlockPos q : ripe) {
+            AABB box = new AABB(q).deflate(0.15);
+            ru.visual.client.util.R3D.boxOutline(box, q.equals(breaking) ? 0xFFFFE040 : 0x9055FF77, q.equals(breaking) ? 2.2f : 1.2f);
+        }
     }
 }

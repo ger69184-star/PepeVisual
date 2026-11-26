@@ -79,5 +79,6 @@
   "key.pepevisual.bind.inventorymove": "PV: InventoryMove",
   "key.pepevisual.bind.totempops": "PV: TotemPops",
   "key.pepevisual.bind.chattimestamps": "PV: ChatTimestamps",
-  "key.pepevisual.bind.lowhealth": "PV: LowHealth"
+  "key.pepevisual.bind.lowhealth": "PV: LowHealth",
+  "key.pepevisual.bind.hotbarview": "PV: HotbarView"
 }

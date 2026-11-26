@@ -708,9 +708,18 @@ public class AutoBrew extends Module {
     @Override
     public void onWorld(WorldRenderContext ctx, float pt, Minecraft mc) {
         if (!labels.get()) return;
+        float pulse = (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 220.0));
         for (Stand s : stands.values()) {
-            int c = s == target || s == current ? Draw.accent() : s.kind.color;
-            R3D.boxOutline(new AABB(s.pos).deflate(0.05), Draw.withAlpha(c, 200), 1.6f);
+            boolean active = s == target || s == current;
+            int c = active ? Draw.accent() : s.kind.color;
+            AABB box = new AABB(s.pos).deflate(0.05);
+            R3D.boxFilled(box, Draw.withAlpha(c, active ? (int) (30 + 40 * pulse) : 22));
+            R3D.boxOutline(box, Draw.withAlpha(c, 200), active ? 2.4f : 1.4f);
+        }
+        // линия от ног к стойке, к которой сейчас идём
+        if (target != null && mc.player != null) {
+            Vec3 pp = mc.player.getPosition(pt);
+            R3D.line(pp.x, pp.y + 0.1, pp.z, target.pos.getX() + 0.5, target.pos.getY() + 0.1, target.pos.getZ() + 0.5, Draw.withAlpha(Draw.accent(), 170), 2f);
         }
     }
 

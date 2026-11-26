@@ -38,6 +38,8 @@ public class StorageEsp extends Module {
     private final BoolSetting furnaces = add(new BoolSetting("Печки", "Печи, плавильни, коптильни.", false));
     private final BoolSetting hoppers = add(new BoolSetting("Воронки и раздатчики", "Воронки, раздатчики, выбрасыватели.", false));
     private final BoolSetting spawners = add(new BoolSetting("Спавнеры", "Спавнеры мобов.", true));
+    private final ru.visual.client.setting.ModeSetting style = add(new ru.visual.client.setting.ModeSetting("Вид",
+            "Рамка - уголки сквозь стены. 3D - объёмные коробки в мире (видны, когда не за стеной). Оба - и то и другое.", "Оба", "Рамка", "3D", "Оба"));
     private final BoolSetting labels = add(new BoolSetting("Подписи", "Подписывать тип и расстояние.", false));
     private final NumSetting range = add(new NumSetting("Радиус (чанки)", "В скольких чанках вокруг искать.", 6, 1, 16, 1));
 
@@ -98,20 +100,49 @@ public class StorageEsp extends Module {
     }
 
     @Override
+    public void onWorld(net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext ctx, float pt, Minecraft mc) {
+        if (style.is("Рамка")) return;
+        Vec3 eye = Projection.eye();
+        int drawn = 0;
+        for (Found f : found) {
+            BlockPos p = f.pos();
+            double d = eye.distanceTo(Vec3.atCenterOf(p));
+            if (d > 64) continue;
+            if (++drawn > 200) break;
+            AABB box = new AABB(p.getX() + 0.04, p.getY(), p.getZ() + 0.04, p.getX() + 0.96, p.getY() + 0.9, p.getZ() + 0.96);
+            int a = (int) (255 * Math.max(0.35, 1 - d / 64));
+            ru.visual.client.util.R3D.boxFilled(box, Draw.withAlpha(f.color(), a / 6));
+            ru.visual.client.util.R3D.boxOutline(box, Draw.withAlpha(f.color(), a), 1.6f);
+        }
+    }
+
+    @Override
     public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
         Vec3 eye = Projection.eye();
         int drawn = 0;
+        boolean flat = !style.is("3D");
+        java.util.List<int[]> taken = new java.util.ArrayList<>();
         for (Found f : found) {
             BlockPos p = f.pos();
             double[] r = Projection.boxRect(new AABB(p.getX() + 0.06, p.getY(), p.getZ() + 0.06, p.getX() + 0.94, p.getY() + 0.88, p.getZ() + 0.94));
             if (r == null) continue;
             if (++drawn > 250) break;
             int x1 = (int) r[0], y1 = (int) r[1], x2 = (int) r[2], y2 = (int) r[3];
-            Draw.rect(g, x1, y1, x2, y2, Draw.withAlpha(f.color() & 0xFFFFFF, 0x30));
-            Draw.outline(g, x1, y1, x2, y2, f.color());
-            if (labels.get()) {
-                int d = (int) eye.distanceTo(Vec3.atCenterOf(p));
-                Draw.textCentered(g, f.name() + " " + d + "м", (x1 + x2) / 2, y1 - 10, f.color());
+            double d = eye.distanceTo(Vec3.atCenterOf(p));
+            int a = (int) (255 * Math.max(0.35, 1 - d / (range.get() * 16)));
+            if (flat) {
+                Draw.rect(g, x1, y1, x2, y2, Draw.withAlpha(f.color(), a / 6));
+                Draw.corners(g, x1, y1, x2, y2, Draw.withAlpha(f.color(), a));
+            }
+            if (labels.get() && taken.size() < 40) {
+                String s = f.name() + " " + (int) d + "м";
+                int tw = Draw.width(s) + 6;
+                int cx = (x1 + x2) / 2;
+                int[] want = {cx - tw / 2, y1 - 14, cx + tw / 2, y1 - 2};
+                boolean free = true;
+                for (int[] t : taken) if (want[0] < t[2] && want[2] > t[0] && want[1] < t[3] && want[3] > t[1]) { free = false; break; }
+                if (!free) continue; // подписи не громоздим друг на друга
+                taken.add(Draw.pill(g, s, cx, y1 - 12, Draw.withAlpha(f.color(), Math.max(a, 160))));
             }
         }
     }

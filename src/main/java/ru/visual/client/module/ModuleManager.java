@@ -94,6 +94,7 @@ public final class ModuleManager {
         MODULES.add(new Interface());
         MODULES.add(new Watermark());
         MODULES.add(new TargetHud());
+        MODULES.add(new HotbarView());
         MODULES.add(new ModuleList());
         MODULES.add(new InfoHud());
         MODULES.add(new ArmorHud());

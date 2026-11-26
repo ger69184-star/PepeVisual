@@ -187,6 +187,15 @@ public class BaseFinder extends Module {
     }
 
     @Override
+    public void onWorld(net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext ctx, float pt, Minecraft mc) {
+        for (Cluster c : clusters) {
+            ru.visual.client.util.R3D.boxOutline(c.box, 0xC0FF7A30, 1.6f);
+            // столб над центром - видно издалека, где именно база
+            ru.visual.client.util.R3D.line(c.center.x, c.box.maxY, c.center.z, c.center.x, c.box.maxY + 40, c.center.z, 0x90FF7A30, 2.5f);
+        }
+    }
+
+    @Override
     public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
         int w = mc.getWindow().getGuiScaledWidth();
         Vec3 me = mc.player.position();
@@ -196,26 +205,23 @@ public class BaseFinder extends Module {
             int col = 0xFFFF7A30;
             double[] r = Projection.boxRect(c.box);
             if (r != null) {
-                Draw.outline(g, (int) r[0] - 1, (int) r[1] - 1, (int) r[2] + 1, (int) r[3] + 1, 0xFF000000);
-                Draw.outline(g, (int) r[0], (int) r[1], (int) r[2], (int) r[3], col);
+                Draw.corners(g, (int) r[0], (int) r[1], (int) r[2], (int) r[3], col);
             }
             if (Projection.project(c.center.x, c.center.y, c.center.z, o)) {
                 String s = "Приват? " + c.score + " объектов, " + (int) dist + "м";
-                Draw.textCentered(g, s, (int) o[0], (int) o[1] - 12, col);
+                Draw.pill(g, s, (int) o[0], (int) o[1] - 12, col);
             }
         }
         if (list.get() && !clusters.isEmpty()) {
             List<Cluster> near = new ArrayList<>(clusters);
             near.sort(Comparator.comparingDouble(c -> c.center.distanceToSqr(me)));
-            int y = 46;
+            int y = 66; // под списком DungeonFinder
             for (int i = 0; i < Math.min(3, near.size()); i++) {
                 Cluster c = near.get(i);
                 String s = "Приват: " + (int) c.center.x + " " + (int) c.center.y + " " + (int) c.center.z
                         + " (" + (int) c.center.distanceTo(me) + "м, " + c.score + ")";
-                int tw = Draw.width(s);
-                Draw.rect(g, w / 2 - tw / 2 - 3, y - 1, w / 2 + tw / 2 + 3, y + 10, 0x90000000);
-                Draw.textCentered(g, s, w / 2, y, 0xFFFF7A30);
-                y += 12;
+                Draw.pill(g, s, w / 2, y + 2, 0xFFFF7A30);
+                y += 14;
             }
         }
     }

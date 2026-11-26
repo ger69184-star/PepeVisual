@@ -335,10 +335,7 @@ public class ChestSorter extends Module {
                     int cnt = e.getValue().count(hand);
                     if (cnt <= 0) continue;
                     if (Projection.project(c.x, c.y + 0.8, c.z, o)) {
-                        String s = "x" + cnt;
-                        int w = Draw.width(s);
-                        Draw.rect(g, (int) o[0] - w / 2 - 2, (int) o[1] - 2, (int) o[0] + w / 2 + 2, (int) o[1] + 9, Draw.withAlpha(0, 150));
-                        Draw.textCentered(g, s, (int) o[0], (int) o[1], 0xFF40FF90);
+                        Draw.pill(g, "x" + cnt, (int) o[0], (int) o[1], 0xFF40FF90);
                     }
                 }
             }

@@ -56,7 +56,7 @@ public class LowHealthWarning extends Module {
             float hp = mc.player.getHealth() + mc.player.getAbsorptionAmount();
             String s = "Мало здоровья: " + String.format(java.util.Locale.ROOT, "%.1f", hp / 2f) + " сердец";
             int col = Draw.withAlpha(0xFF5050, (int) (180 + 75 * pulse));
-            Draw.textCentered(g, s, w / 2, h / 2 - 28, col); // над прицелом: внизу уже броня и хотбар
+            Draw.pill(g, s, w / 2, h / 2 - 30, col); // над прицелом: внизу уже броня и хотбар
         }
     }
 }

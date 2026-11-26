@@ -30,81 +30,197 @@ public final class Blueprints {
         return Arrays.asList(lines);
     }
 
+    private static final net.minecraft.world.level.block.Block[] GLASSES = {Blocks.TINTED_GLASS, Blocks.WHITE_STAINED_GLASS,
+            Blocks.LIGHT_GRAY_STAINED_GLASS, Blocks.GRAY_STAINED_GLASS, Blocks.BLACK_STAINED_GLASS, Blocks.LIME_STAINED_GLASS};
+    private static final net.minecraft.world.level.block.Block[] CHESTS = {Blocks.TRAPPED_CHEST, Blocks.BARREL};
+
+    private static Blueprint.Spec chest() {
+        return block(Blocks.CHEST, CHESTS);
+    }
+
+    private static Blueprint.Spec glass() {
+        return block(Blocks.GLASS, GLASSES);
+    }
+
+    /** Твёрдый блок, но не земля (чтобы тыква/арбуз не выросли не там). */
+    private static Blueprint.Spec stone() {
+        return block("Камень/булыжник/кирпич - НЕ земля, иначе плод вырастет здесь.", Blocks.COBBLESTONE,
+                Blocks.STONE, Blocks.STONE_BRICKS, Blocks.COBBLED_DEEPSLATE, Blocks.DEEPSLATE, Blocks.ANDESITE, Blocks.DIORITE,
+                Blocks.GRANITE, Blocks.SMOOTH_STONE, Blocks.GLASS, Blocks.OAK_PLANKS, Blocks.SPRUCE_PLANKS, Blocks.BIRCH_PLANKS);
+    }
+
     static {
-        // ---------------- Фермы ----------------
-        ALL.add(new Blueprint("Ферма тростника (обсервер)", "Фермы",
-                "Авто-ферма сахарного тростника на 6 кустов: наблюдатель видит, что тростник вырос до 3 блоков, и поршни срезают его. Урожай течёт по воде в воронку и сундук.",
-                guide("1. Нижний слой уходит в землю: воронка и сундук для урожая.",
-                        "2. Ручей: поставь одну воду в начале канала (у западной стены) - она сама дотечёт до воронки.",
-                        "3. Поршни смотрят на тростник, над ними наблюдатели (глазом к тростнику).",
-                        "4. За наблюдателями - линия редстоун-пыли: она включает все поршни сразу.",
-                        "5. Тростник сажай последним, когда вода уже течёт.",
-                        "Часть тростника может оставаться у основания - иногда подбирай руками."),
-                1,
-                legend('S', SOLID, 'G', block(Blocks.GLASS, Blocks.TINTED_GLASS, Blocks.WHITE_STAINED_GLASS),
-                        'W', WATER, 'D', block(Blocks.SAND, Blocks.RED_SAND, Blocks.DIRT, Blocks.GRASS_BLOCK, Blocks.MUD, Blocks.COARSE_DIRT),
+        // ================= Фермы =================
+        ALL.add(new Blueprint("Тростник 2x7 (обсерверы)", "Фермы",
+                "Полностью автоматическая ферма тростника на 14 кустов: обсерверы видят, что тростник вырос до 3 блоков, поршни срезают его, урожай падает в ручей и уплывает в воронку и сундук.",
+                guide("1. Платформа и воронка в сундук (воронка сыплет на восток в сундук).",
+                        "2. Два ряда песка/земли по бокам канала и стенки вокруг.",
+                        "3. Одно ведро воды у западного края канала - вода сама дотечёт до воронки.",
+                        "4. Поршни (лицом к тростнику), над ними обсерверы глазом к тростнику.",
+                        "5. За обсерверами на блоках - линия редстоун-пыли: она включает все поршни ряда.",
+                        "6. Посади тростник на песок. Сундук справа - урожай.",
+                        "Масштабируется: удлини ряды, через каждые 7 блоков канала добавь ещё воду."),
+                0,
+                legend('S', SOLID, 'W', WATER, '_', AIR,
+                        'D', block(Blocks.SAND, Blocks.RED_SAND, Blocks.DIRT, Blocks.GRASS_BLOCK, Blocks.COARSE_DIRT, Blocks.MUD, Blocks.MOSS_BLOCK),
                         'c', block(Blocks.SUGAR_CANE),
-                        'p', facing(Blocks.PISTON, Direction.NORTH),
-                        'o', facing(Blocks.OBSERVER, Direction.NORTH),
+                        'p', facing(Blocks.PISTON, Direction.SOUTH),
+                        'q', facing(Blocks.PISTON, Direction.NORTH),
+                        'o', facing(Blocks.OBSERVER, Direction.SOUTH),
+                        'u', facing(Blocks.OBSERVER, Direction.NORTH),
                         'r', block(Blocks.REDSTONE_WIRE),
                         'e', facing(Blocks.HOPPER, Direction.EAST),
-                        'C', block(Blocks.CHEST, Blocks.TRAPPED_CHEST, Blocks.BARREL)),
+                        'C', chest()),
                 new String[][]{
-                        {".........", ".SSSSSSeC", ".........", ".........", "........."},
-                        {"SSSSSSSSS", "SW......G", ".DDDDDDS.", ".SSSSSS..", "........."},
-                        {".GGGGGGG.", ".........", ".cccccc..", ".SSSSSS..", "........."},
-                        {".GGGGGGG.", ".........", ".........", ".pppppp..", ".SSSSSS.."},
-                        {".GGGGGGG.", ".........", ".........", ".oooooo..", ".rrrrrr.."}
+                        {".SSSSSSS..", ".SSSSSSS..", "SSSSSSSSS.", "SSSSSSSSeC", "SSSSSSSSS.", ".SSSSSSS..", ".SSSSSSS.."},
+                        {".SSSSSSS..", ".SSSSSSS..", "SDDDDDDDS.", "SW_______S", "SDDDDDDDS.", ".SSSSSSS..", ".SSSSSSS.."},
+                        {".SSSSSSS..", ".SSSSSSS..", ".ccccccc..", ".________.", ".ccccccc..", ".SSSSSSS..", ".SSSSSSS.."},
+                        {".SSSSSSS..", ".ppppppp..", "", "", "", ".qqqqqqq..", ".SSSSSSS.."},
+                        {".rrrrrrr..", ".ooooooo..", "", "", "", ".uuuuuuu..", ".rrrrrrr.."}
                 }));
 
-        ALL.add(new Blueprint("Яйцефабрика (курицы)", "Фермы",
-                "4 курицы сидят прямо в воронках: снесённые яйца сами уходят в сундук.",
-                guide("1. Воронки ставь цепочкой: каждая сыплет в следующую, последняя - в сундук (Shift+ПКМ по боковой грани).",
-                        "2. Стеклянный загон в 2 блока - курицы не выпрыгнут.",
-                        "3. Брось внутрь яйца или заведи куриц на семенах: по одной на воронку.",
-                        "Яйца можно сразу бросать для новых куриц или варить в печи."),
+        ALL.add(new Blueprint("Тыквы / арбузы (обсерверы)", "Фермы",
+                "Автоматическая ферма на 9 стеблей: обсервер над стеблем видит, что вырос плод, поршень ломает его, и урожай падает на грядку, а воронки под грядкой забирают его в сундук.",
+                guide("1. Ряд воронок (сыплют на восток) и сундук в конце - это и есть сбор урожая.",
+                        "2. На воронки - земля, вскопай её мотыгой: воронка подбирает предметы сквозь грядку.",
+                        "3. Перед грядкой ряд земли - здесь будут расти тыквы/арбузы. По краям - камень, не земля!",
+                        "4. Сзади канал с одним ведром воды (поливает грядку), сверху закрой стеклом.",
+                        "5. Поршни смотрят на клетки с плодами, над стеблями обсерверы смотрят ВНИЗ.",
+                        "6. Сверху на блоках и обсерверах - редстоун-пыль сплошным полем 3x9.",
+                        "7. Посади семена. Нужен свет: днём солнце, ночью поставь фонари вокруг."),
+                0,
+                legend('S', SOLID, 'K', stone(), 'W', WATER, '_', AIR, 'G', glass(),
+                        'D', block("Земля: здесь вырастет плод.", Blocks.DIRT, Blocks.GRASS_BLOCK, Blocks.COARSE_DIRT, Blocks.ROOTED_DIRT, Blocks.PODZOL, Blocks.MOSS_BLOCK),
+                        'F', block(Blocks.FARMLAND),
+                        't', block(Blocks.PUMPKIN_STEM, Blocks.MELON_STEM, Blocks.ATTACHED_PUMPKIN_STEM, Blocks.ATTACHED_MELON_STEM),
+                        'P', facing(Blocks.PISTON, Direction.SOUTH),
+                        'o', facing(Blocks.OBSERVER, Direction.DOWN),
+                        'r', block(Blocks.REDSTONE_WIRE),
+                        'h', facing(Blocks.HOPPER, Direction.EAST),
+                        'C', chest()),
+                new String[][]{
+                        {".SSSSSSSSS.", ".SSSSSSSSS.", ".hhhhhhhhhC", "SSSSSSSSSSS", ""},
+                        {".SSSSSSSSS.", "KDDDDDDDDDK", "KFFFFFFFFF_", "K____W____K", ".KKKKKKKKK."},
+                        {".PPPPPPPPP.", "", ".ttttttttt.", ".GGGGGGGGG.", ""},
+                        {".SSSSSSSSS.", ".SSSSSSSSS.", ".ooooooooo.", "", ""},
+                        {".rrrrrrrrr.", ".rrrrrrrrr.", ".rrrrrrrrr.", "", ""}
+                }));
+
+        ALL.add(new Blueprint("Огород 8x6 со смывом", "Фермы",
+                "Пшеница/морковь/картошка/свёкла 8x6: нажал кнопку - раздатчики выливают воду, она срывает урожай и сносит его в воронки. Нажал ещё раз - вода убирается обратно.",
+                guide("1. Выдели зону на земле: грядки будут прямо в уровень с землёй.",
+                        "2. Ряд воронок спереди (сыплют на восток в сундук), по бокам канавы с водой - они поливают грядки.",
+                        "3. Стенка вокруг поля, сзади 4 раздатчика смотрят на поле. В каждый положи по ведру воды.",
+                        "4. Сверху на раздатчиках - редстоун-пыль, за ними блок с кнопкой.",
+                        "5. Кнопка: урожай смыт в воронки. Подожди пару секунд и нажми ещё раз - раздатчики заберут воду.",
+                        "6. Пересади семена (их тоже собирают воронки) - удобно с AutoFarm."),
                 1,
-                legend('G', block(Blocks.GLASS, Blocks.TINTED_GLASS, Blocks.WHITE_STAINED_GLASS),
+                legend('S', SOLID, 'W', WATER, '_', AIR,
+                        'F', block(Blocks.FARMLAND),
+                        'w', block("Посади семена: пшеница, морковь, картофель или свёкла.", Blocks.WHEAT, Blocks.CARROTS, Blocks.POTATOES, Blocks.BEETROOTS),
+                        'd', facing(Blocks.DISPENSER, Direction.NORTH),
+                        'r', block(Blocks.REDSTONE_WIRE),
+                        'b', block("Любая кнопка на южной стороне блока.", Blocks.STONE_BUTTON, Blocks.OAK_BUTTON, Blocks.SPRUCE_BUTTON,
+                                Blocks.BIRCH_BUTTON, Blocks.POLISHED_BLACKSTONE_BUTTON),
+                        'h', facing(Blocks.HOPPER, Direction.EAST),
+                        'C', chest()),
+                new String[][]{
+                        {"", "ShhhhhhhhhC", "_FFFFFFFF_.", "_FFFFFFFF_.", "WFFFFFFFFW.", "_FFFFFFFF_.", "_FFFFFFFF_.", "_FFFFFFFF_.", "S........S."},
+                        {"SSSSSSSSSS.", "S________S_", "SwwwwwwwwS.", "SwwwwwwwwS.", "SwwwwwwwwS.", "SwwwwwwwwS.", "SwwwwwwwwS.", "SwwwwwwwwS.",
+                                "SdSdSSdSdS.", "....S......"},
+                        {"", "", "", "", "", "", "", "", ".rrrrrrrr..", "....S......", "....b......"}
+                }));
+
+        ALL.add(new Blueprint("Яйцефабрика на 8 куриц", "Фермы",
+                "8 куриц стоят прямо в воронках: снесённые яйца сами уходят в сундук. Яйца - на новых куриц или в печь-коптильню.",
+                guide("1. Задний ряд воронок сыплет на юг (в передний ряд), передний - на восток в сундук.",
+                        "2. Стеклянный загон высотой 2 блока - курицы не выпрыгнут.",
+                        "3. Заведи куриц на семенах или бросай яйца внутрь: по одной курице на воронку.",
+                        "4. Сундук открывается с восточной стороны."),
+                0,
+                legend('G', glass(),
+                        's', facing(Blocks.HOPPER, Direction.SOUTH),
                         'e', facing(Blocks.HOPPER, Direction.EAST),
-                        'C', block(Blocks.CHEST, Blocks.TRAPPED_CHEST, Blocks.BARREL)),
+                        'C', chest()),
                 new String[][]{
-                        {"......", ".eeeeC", "......"},
-                        {".GGGG.", "G....G", ".GGGG."},
-                        {".GGGG.", "G....G", ".GGGG."}
+                        {"", ".ssss.", ".eeeeC", ""},
+                        {".GGGG.", "G....G", "G....G", ".GGGG."},
+                        {".GGGG.", "G....G", "G....G", ".GGGG."}
                 }));
 
-        ALL.add(new Blueprint("Грядка 9x9 с водой", "Фермы",
-                "Классическая грядка 9x9: одна вода в центре орошает всё поле. Землю вскопай мотыгой.",
-                guide("1. Положи землю (или используй уже имеющуюся).",
-                        "2. В центр - ведро воды.",
-                        "3. Вскопай мотыгой и посади семена. AutoFarm соберёт урожай сам."),
-                1,
-                legend('D', block(Blocks.DIRT, Blocks.FARMLAND, Blocks.GRASS_BLOCK, Blocks.COARSE_DIRT, Blocks.ROOTED_DIRT), 'W', WATER),
-                new String[][]{
-                        {"DDDDDDDDD", "DDDDDDDDD", "DDDDDDDDD", "DDDDDDDDD", "DDDDWDDDD",
-                                "DDDDDDDDD", "DDDDDDDDD", "DDDDDDDDD", "DDDDDDDDD"}
-                }));
-
-        // ---------------- Мобы ----------------
+        // ================= Мобы =================
         ALL.add(spawnerFarm());
 
-        // ---------------- Зельеварение ----------------
+        // ================= Ресурсы =================
+        ALL.add(new Blueprint("Генератор булыжника", "Ресурсы",
+                "Бесконечный булыжник: лава стекает к воде и превращается в камень на одной и той же клетке. Сломал - через секунду новый.",
+                guide("1. Пол и стенки. В средней клетке пола - яма: туда стекает вода, поэтому она не доходит до лавы.",
+                        "2. Справа ведро воды, слева ведро лавы. Лаву - последней!",
+                        "3. Булыжник появляется на клетке между лавой и водой. Копай его сверху.",
+                        "Если вместо булыжника появился обсидиан - вода дотекла до самой лавы, проверь яму."),
+                0,
+                legend('S', SOLID, 'W', WATER, 'L', Blueprint.LAVA, '_', AIR),
+                new String[][]{
+                        {"...S..", "SSS_SS", "...S.."},
+                        {".SSSS.", "SL._WS", ".SSSS."},
+                        {"", ".S....", ""}
+                }));
+
+        // ================= Плавка =================
+        ALL.add(new Blueprint("Плавильня на 4 печи", "Плавка",
+                "Четыре печи работают параллельно: сверху 2 двойных сундука с рудой/едой, сзади 2 двойных сундука с топливом, всё готовое собирается в один сундук.",
+                guide("1. Нижний ряд воронок (на восток) и сундук для готового справа.",
+                        "2. Печи на воронки. Сзади воронки смотрят В печи (Shift+ПКМ по задней стороне печи) - это топливо.",
+                        "3. На печи - воронки вниз, на них сундуки: 4 сундука в ряд сами станут двумя двойными.",
+                        "4. На задние воронки - сундуки для угля/ламинарии/лавы в вёдрах.",
+                        "Каждый двойной сундук кормит 2 печи поровну. Печь можно заменить на плавильню или коптильню."),
+                0,
+                legend('F', block(Blocks.FURNACE, Blocks.BLAST_FURNACE, Blocks.SMOKER),
+                        'e', facing(Blocks.HOPPER, Direction.EAST),
+                        'n', facing(Blocks.HOPPER, Direction.NORTH),
+                        'd', facing(Blocks.HOPPER, Direction.DOWN),
+                        '_', AIR,
+                        'C', chest()),
+                new String[][]{
+                        {"eeeeC", ""},
+                        {"FFFF_", "nnnn."},
+                        {"dddd.", "CCCC."},
+                        {"CCCC.", ""}
+                }));
+
+        ALL.add(new Blueprint("Авто-печь", "Плавка",
+                "Одна печь с тремя сундуками: сверху - что плавить, сбоку - топливо, снизу - готовое. Подходит и плавильня/коптильня.",
+                guide("1. Сначала нижний сундук, потом воронка в него (Shift+ПКМ по сундуку).",
+                        "2. Печь, затем боковая воронка (Shift+ПКМ по боку печи) и сундук для топлива на ней.",
+                        "3. Воронка на печь (сыплет вниз) и сундук на неё - туда руду/песок/еду."),
+                0,
+                legend('F', block(Blocks.FURNACE, Blocks.BLAST_FURNACE, Blocks.SMOKER),
+                        'e', facing(Blocks.HOPPER, Direction.EAST),
+                        'd', facing(Blocks.HOPPER, Direction.DOWN),
+                        'C', chest()),
+                new String[][]{
+                        {".eC"},
+                        {"eF."},
+                        {"Cd."},
+                        {".C."}
+                }));
+
+        // ================= Зельеварение =================
         ALL.add(new Blueprint("Зельеварка с подачей", "Зельеварение",
-                "Полуавтоматическая зельеварка: сверху воронка подаёт ингредиенты, сбоку - бутылки и огненный порошок.",
-                guide("1. Левый сундук: бутылки с водой и огненный порошок (топливо).",
+                "Зельеварка с подачей: сверху воронка подаёт ингредиенты, сбоку - бутылки и огненный порошок.",
+                guide("1. Боковой сундук: бутылки с водой и огненный порошок (топливо).",
                         "2. Верхний сундук: ингредиенты по одному на партию в порядке варки,",
                         "   например: незерский нарост, сахар, редстоун - получится долгая скорость.",
-                        "3. Готовые зелья забирай руками (нижняя воронка вытащила бы бутылки раньше времени).",
-                        "AutoBrew умеет обходить такие зельеварки сам."),
+                        "3. Готовые зелья забирай руками (воронка снизу вытащила бы бутылки раньше времени).",
+                        "AutoBrew запоминает такие стойки и обходит их сам."),
                 0,
                 legend('B', block(Blocks.BREWING_STAND),
                         'e', facing(Blocks.HOPPER, Direction.EAST),
                         'd', facing(Blocks.HOPPER, Direction.DOWN),
-                        'K', block(Blocks.CHEST, Blocks.TRAPPED_CHEST, Blocks.BARREL),
-                        'C', block(Blocks.CHEST, Blocks.TRAPPED_CHEST, Blocks.BARREL)),
+                        'C', chest()),
                 new String[][]{
                         {"eB"},
-                        {"Kd"},
+                        {"Cd"},
                         {".C"}
                 }));
 
@@ -117,49 +233,44 @@ public final class Blueprints {
                 legend('B', block(Blocks.BREWING_STAND),
                         'e', facing(Blocks.HOPPER, Direction.EAST),
                         'd', facing(Blocks.HOPPER, Direction.DOWN),
-                        'K', block(Blocks.CHEST, Blocks.TRAPPED_CHEST, Blocks.BARREL),
-                        'C', block(Blocks.CHEST, Blocks.TRAPPED_CHEST, Blocks.BARREL)),
+                        'C', block(Blocks.BARREL, Blocks.CHEST, Blocks.TRAPPED_CHEST)),
                 new String[][]{
                         {"eB.eB.eB"},
-                        {"Kd.Kd.Kd"},
+                        {"Cd.Cd.Cd"},
                         {".C..C..C"}
                 }));
 
-        ALL.add(new Blueprint("Зельеварня-комната 7x5", "Зельеварение",
-                "Комната 7x5x5: 4 зельеварки и котёл на стойке у задней стены, 2 сундука с запасами, вход по центру передней стены.",
-                guide("Стены из каменного кирпича, стойка из досок, освещение - морской фонарь в потолке."),
-                0,
-                legend('S', block(Blocks.STONE_BRICKS), 'P', block(Blocks.OAK_PLANKS), 'B', block(Blocks.BREWING_STAND),
-                        'T', block(Blocks.CAULDRON, Blocks.WATER_CAULDRON), 'C', block(Blocks.CHEST, Blocks.BARREL), 'L', block(Blocks.SEA_LANTERN, Blocks.GLOWSTONE)),
+        // ================= Хранение =================
+        ALL.add(sorter());
+
+        // ================= Постройки =================
+        ALL.add(new Blueprint("Пузырьковый лифт вверх", "Постройки",
+                "Водяной лифт на 8 блоков: песок душ внизу создаёт пузырьковый столб, который быстро поднимает наверх. Вход - через дверь, выход - на север.",
+                guide("1. Песок душ в основание, стеклянная труба вокруг, дверь внизу (дверь не пропускает воду).",
+                        "2. Вода должна быть ИСТОЧНИКОМ в каждом блоке трубы: ставь вёдра снизу вверх.",
+                        "   Совет: вылей ведро наверху, потом снизу кликай ведром по текущей воде - она станет источником.",
+                        "3. Наверху выходи на север (на стену трубы).",
+                        "Хочешь лифт вниз - вместо песка душ поставь магмовый блок."),
+                1,
+                legend('S', SOLID, 'W', WATER, '_', AIR, 'G', glass(),
+                        's', block(Blocks.SOUL_SAND),
+                        'D', block("Любая деревянная дверь (железную не открыть рукой).", Blocks.OAK_DOOR, Blocks.SPRUCE_DOOR, Blocks.BIRCH_DOOR,
+                                Blocks.JUNGLE_DOOR, Blocks.ACACIA_DOOR, Blocks.DARK_OAK_DOOR, Blocks.MANGROVE_DOOR, Blocks.CHERRY_DOOR,
+                                Blocks.BAMBOO_DOOR, Blocks.CRIMSON_DOOR, Blocks.WARPED_DOOR)),
                 new String[][]{
-                        {"SSSSSSS", "SSSSSSS", "SSSSSSS", "SSSSSSS", "SSSSSSS"},
-                        {"SSSSSSS", "SPPPPPS", "S.....S", "SC...CS", "SSS.SSS"},
-                        {"SSSSSSS", "SBBTBBS", "S.....S", "S.....S", "SSS.SSS"},
-                        {"SSSSSSS", "S.....S", "S.....S", "S.....S", "SSSSSSS"},
-                        {"SSSSSSS", "SSSSSSS", "SSSLSSS", "SSSSSSS", "SSSSSSS"}
+                        {".S.", "SsS", ".S."},
+                        {".G.", "GWG", ".D."},
+                        {".G.", "GWG", ".D."},
+                        {".G.", "GWG", ".G."},
+                        {".G.", "GWG", ".G."},
+                        {".G.", "GWG", ".G."},
+                        {".G.", "GWG", ".G."},
+                        {".G.", "GWG", ".G."},
+                        {".G.", "GWG", ".G."},
+                        {"._.", "G_G", ".G."},
+                        {"._.", "._.", ""}
                 }));
 
-        // ---------------- Плавка ----------------
-        ALL.add(new Blueprint("Авто-печь", "Плавка",
-                "Печь с тремя сундуками: сверху - что плавить, сбоку - топливо, снизу - готовое. Подходит и плавильня/коптильня.",
-                guide("1. Сначала нижний сундук, потом воронка под печью (Shift+ПКМ по сундуку).",
-                        "2. Печь, затем боковая воронка (Shift+ПКМ по боку печи) и сундук для топлива на ней.",
-                        "3. Воронка на печь (сыплет вниз) и сундук на неё - туда руду/песок/еду.",
-                        "Печь можно поставить любой стороной."),
-                0,
-                legend('F', block(Blocks.FURNACE, Blocks.BLAST_FURNACE, Blocks.SMOKER),
-                        'e', facing(Blocks.HOPPER, Direction.EAST),
-                        'd', facing(Blocks.HOPPER, Direction.DOWN),
-                        'K', block(Blocks.CHEST, Blocks.TRAPPED_CHEST, Blocks.BARREL),
-                        'C', block(Blocks.CHEST, Blocks.TRAPPED_CHEST, Blocks.BARREL)),
-                new String[][]{
-                        {".eC"},
-                        {"eF."},
-                        {"Kd."},
-                        {".C."}
-                }));
-
-        // ---------------- Постройки ----------------
         ALL.add(new Blueprint("Портал в Незер 4x5", "Постройки",
                 "Рама портала 4x5 из 10 обсидиана (углы не нужны). Зажги внутри огнивом.",
                 guide("Углы рамки не обязательны. Внутри рамки должно быть пусто."),
@@ -172,19 +283,64 @@ public final class Blueprints {
                         {"O__O"},
                         {".OO."}
                 }));
+    }
 
-        ALL.add(new Blueprint("Мини-дом 5x5", "Постройки",
-                "Простой дом 5x5x4: булыжный пол, стены из досок, 4 окна, дверной проём спереди, плоская крыша.",
-                guide("Дверь поставь в проём спереди, факел - внутри."),
-                0,
-                legend('C', block(Blocks.COBBLESTONE, Blocks.STONE, Blocks.COBBLED_DEEPSLATE), 'P', block(Blocks.OAK_PLANKS),
-                        'G', block(Blocks.GLASS, Blocks.GLASS_PANE)),
-                new String[][]{
-                        {"CCCCC", "CCCCC", "CCCCC", "CCCCC", "CCCCC"},
-                        {"PPPPP", "P...P", "P...P", "P...P", "PP.PP"},
-                        {"PPPPP", "G...G", "P...P", "G...G", "PP.PP"},
-                        {"PPPPP", "PPPPP", "PPPPP", "PPPPP", "PPPPP"}
-                }));
+    /**
+     * Сортировщик на 4 вида предметов (классическая схема: воронка-фильтр + компаратор + факел).
+     * Ячейки через одну по X, чтобы пыль соседних ячеек не соединялась.
+     */
+    private static Blueprint sorter() {
+        int n = 4, sx = n * 2 + 1;
+        String[][] layers = new String[5][];
+        char[][][] g = new char[5][5][sx];
+        for (char[][] l : g) for (char[] r : l) Arrays.fill(r, '.');
+        for (int i = 0; i < n; i++) {
+            int x = i * 2;
+            // L0 (под землёй): блок под нижней воронкой, повторитель, факел, блок под пылью
+            g[0][1][x] = 'S';
+            g[0][2][x] = 'R';
+            g[0][3][x] = 'T';
+            g[0][4][x] = 'S';
+            // L1: сундук, нижняя воронка (в сундук), опора компаратора, стекло под пылью, пыль ступенькой вниз
+            g[1][0][x] = 'C';
+            g[1][1][x] = 'n';
+            g[1][2][x] = 'S';
+            g[1][3][x] = 'g';
+            g[1][4][x] = 'r';
+            // L2: воронка-фильтр (смотрит на компаратор), компаратор, пыль, пусто над ступенькой
+            g[2][1][x] = 'f';
+            g[2][2][x] = 'k';
+            g[2][3][x] = 'r';
+            g[2][4][x] = '_';
+        }
+        for (int x = 0; x < sx - 1; x++) g[3][1][x] = 'e';
+        g[3][1][sx - 1] = 'O';
+        g[4][1][0] = 'I';
+        for (int y = 0; y < 5; y++) {
+            layers[y] = new String[5];
+            for (int z = 0; z < 5; z++) layers[y][z] = new String(g[y][z]);
+        }
+        return new Blueprint("Сортировщик на 4 предмета", "Хранение",
+                "Классический сортировщик: кидаешь всё в верхний сундук, каждый из 4 видов предметов сам уходит в свой сундук, остальное - в сундук в конце линии.",
+                guide("1. Нижний слой уходит в землю: блок, повторитель (на север), факел на стене блока, блок.",
+                        "2. Сундуки спереди, в них воронки смотрят НА СЕВЕР (в сундук).",
+                        "3. Над ними воронки-фильтры смотрят НА ЮГ - в компаратор. Компаратор в режиме сравнения.",
+                        "4. Пыль за компаратором лежит на стекле и ступенькой спускается на блок над факелом.",
+                        "5. Сверху линия воронок на восток, в начале - сундук для загрузки, в конце - сундук для остального.",
+                        "6. ВАЖНО: в каждый фильтр положи 18 нужных предметов в 1-й слот и по 1 \"пустышке\" (переименованная палка) в слоты 2-5.",
+                        "Для предметов по 16 (жемчуг, яйца) - 1 шт в первый слот и по 1 пустышке."),
+                1,
+                legend('S', SOLID, '_', AIR, 'g', glass(),
+                        'R', Blueprint.diode(Blocks.REPEATER, Direction.NORTH),
+                        'T', Blueprint.wallTorch(Blocks.REDSTONE_WALL_TORCH, Direction.NORTH, "Факел держит нижнюю воронку закрытой, пока в фильтре нет лишнего предмета."),
+                        'k', Blueprint.diode(Blocks.COMPARATOR, Direction.SOUTH),
+                        'r', block(Blocks.REDSTONE_WIRE),
+                        'n', facing(Blocks.HOPPER, Direction.NORTH),
+                        'f', state(Blocks.HOPPER.defaultBlockState().setValue(BlockStateProperties.FACING_HOPPER, Direction.SOUTH),
+                                "Фильтр: 18 сортируемых предметов + 4 пустышки."),
+                        'e', facing(Blocks.HOPPER, Direction.EAST),
+                        'C', chest(), 'O', chest(), 'I', chest()),
+                layers);
     }
 
     /**
