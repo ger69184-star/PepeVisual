@@ -364,7 +364,12 @@ public class AutoBrew extends Module {
             pauseTicks = 60;
         }
         if (pauseTicks > 0) {
-            pauseTicks--;
+            if (--pauseTicks == 0) {
+                // игрок сам отошёл - новое "место ожидания" там, где он остановился
+                home = mc.player.blockPosition();
+                lastScan = -100;
+                goingHome = false;
+            }
             status = "пауза: ты управляешь";
             return;
         }
