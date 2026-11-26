@@ -4,14 +4,12 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Camera;
 import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.world.item.ItemStack;
-import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import ru.visual.client.module.ModuleManager;
-import ru.visual.client.module.impl.AspectRatio;
 import ru.visual.client.module.impl.NoRender;
 import ru.visual.client.module.impl.Zoom;
 
@@ -35,11 +33,5 @@ public class GameRendererMixin {
         float fov = cir.getReturnValueF();
         float z = Zoom.modifyFov(fov);
         if (z != fov) cir.setReturnValue(z);
-    }
-
-    /** Aspect Ratio: растяжение картинки мира. */
-    @Inject(method = "getProjectionMatrix", at = @At("RETURN"), require = 0)
-    private void pepevisual$aspect(float fov, CallbackInfoReturnable<Matrix4f> cir) {
-        AspectRatio.apply(cir.getReturnValue());
     }
 }

@@ -16,7 +16,7 @@ import ru.visual.client.util.Draw;
 
 public class CustomCrosshair extends Module {
     public final BoolSetting hideVanilla = add(new BoolSetting("Скрыть ванильный", "Убирает стандартный прицел Minecraft, чтобы не было двух сразу.", true));
-    private final ModeSetting style = add(new ModeSetting("Стиль", "Вид прицела. ЛКМ - дальше, ПКМ - назад.", "Плюс", "Плюс", "Крест", "Точка", "Круг"));
+    private final ModeSetting style = add(new ModeSetting("Стиль", "Вид прицела.", "Плюс", "Плюс", "Крест", "Точка", "Круг"));
     private final ColorSetting color = add(new ColorSetting("Цвет", "Цвет прицела. ПКМ - радужный.", 0xFFFFFF));
     private final NumSetting size = add(new NumSetting("Размер", "Длина линий прицела.", 5, 1, 14, 1));
     private final NumSetting gap = add(new NumSetting("Зазор", "Расстояние от центра до линий.", 3, 0, 12, 1));

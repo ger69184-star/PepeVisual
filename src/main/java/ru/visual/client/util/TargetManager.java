@@ -59,7 +59,7 @@ public final class TargetManager {
         }
         long now = System.currentTimeMillis();
         if (target != null) {
-            boolean gone = target.isRemoved() || !target.isAlive();
+            boolean gone = target.isRemoved() || !target.isAlive() || target.level() != mc.level;
             boolean old = now - lastSeen > 6000;
             boolean far = mc.player.distanceTo(target) > 40;
             if (gone || old || far) target = null;

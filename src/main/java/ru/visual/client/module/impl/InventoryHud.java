@@ -24,7 +24,7 @@ public class InventoryHud extends HudModule {
         for (int i = 9; i < 36; i++) if (!inv.getItem(i).isEmpty()) { any = true; break; }
         if (!any && hideEmpty.get()) return;
         int sh = mc.getWindow().getGuiScaledHeight();
-        int x = 4 + ox(), y = sh / 2 - 30 + oy();
+        int x = 4 + ox(), y = left(sh / 2 - 30);
         int w = 9 * 18 + 6, h = 3 * 18 + 6;
         Draw.panel(g, x, y, x + w, y + h, Draw.bg());
         for (int i = 0; i < 27; i++) {

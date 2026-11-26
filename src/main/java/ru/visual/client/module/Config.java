@@ -68,7 +68,7 @@ public final class Config {
             }
         }
         for (Module m : ModuleManager.MODULES) {
-            boolean enable = m instanceof DefaultOn;
+            boolean enable = m.defaultEnabled();
             if (root != null && root.has(m.name) && root.get(m.name).isJsonObject()) {
                 JsonObject mo = root.getAsJsonObject(m.name);
                 if (mo.has("enabled")) enable = mo.get("enabled").getAsBoolean();

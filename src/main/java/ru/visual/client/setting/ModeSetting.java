@@ -1,6 +1,6 @@
 package ru.visual.client.setting;
 
-/** Выбор из списка режимов. ЛКМ в меню - следующий, ПКМ - предыдущий. */
+/** Выбор из списка режимов (в меню открывается выпадающий список). */
 public class ModeSetting extends Setting<String> {
     public final String[] modes;
     private int index;

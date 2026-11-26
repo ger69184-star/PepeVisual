@@ -26,6 +26,12 @@ public class NumSetting extends Setting<Double> {
 
     public String display() {
         if (step >= 1) return String.valueOf(asInt());
-        return String.format(java.util.Locale.ROOT, "%.2f", value);
+        // столько знаков, сколько нужно шагу: 0.1 -> "1.5", 0.05 -> "0.75"
+        int digits = step >= 0.1 - 1e-9 ? 1 : 2;
+        return String.format(java.util.Locale.ROOT, "%." + digits + "f", value);
+    }
+
+    public void reset() {
+        set(def);
     }
 }

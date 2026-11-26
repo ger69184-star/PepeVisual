@@ -13,7 +13,7 @@ public class Keystrokes extends HudModule {
 
     @Override
     public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
-        int x = 8 + ox(), y = mc.getWindow().getGuiScaledHeight() / 2 + 30 + oy();
+        int x = 8 + ox(), y = left(mc.getWindow().getGuiScaledHeight() / 2 + 30);
         key(g, "W", x + 20, y, 18, mc.options.keyUp.isDown());
         key(g, "A", x, y + 20, 18, mc.options.keyLeft.isDown());
         key(g, "S", x + 20, y + 20, 18, mc.options.keyDown.isDown());

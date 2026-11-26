@@ -35,7 +35,7 @@ public class PotionHud extends HudModule implements Config.DefaultOn {
             String s = name + "  " + time;
             int color = e.getEffect().value().isBeneficial() ? 0xFF7CFFB0 : 0xFFFF6060;
             int tw = Draw.width(s);
-            Draw.rect(g, w - tw - 8, y - 1, w - 3, y + 10, 0x80000000);
+            Draw.panel(g, w - tw - 8, y - 1, w - 3, y + 10, Draw.bg(), false);
             Draw.text(g, s, w - tw - 5, y, color);
             y += 12;
         }

@@ -20,7 +20,7 @@ public class Watermark extends HudModule implements Config.DefaultOn {
     public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
         String title = "Pepe Visual";
         String rest = stats.get() ? "  |  " + mc.getUser().getName() + "  |  " + mc.getFps() + " fps  |  " + PlayerUtil.ping(mc) + " ms" : "";
-        int x = 4 + ox(), y = 4 + oy();
+        int x = 4 + ox(), y = left(4);
         int w = Draw.width(title) + Draw.width(rest) + 8;
         Draw.panel(g, x, y, x + w, y + 13, Draw.bg());
         Draw.rect(g, x + Draw.r(), y, x + w - Draw.r(), y + 1, Draw.bar(0));

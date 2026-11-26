@@ -28,6 +28,8 @@ public class TargetHud extends HudModule implements Config.DefaultOn {
     @Override
     public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
         LivingEntity t = TargetManager.get();
+        // в редакторе HUD показываем панель на себе, иначе её нельзя было передвинуть без цели
+        if (t == null && mc.screen instanceof ru.visual.client.gui.HudEditorScreen) t = mc.player;
         if (t == null) {
             last = null;
             return;
@@ -52,14 +54,16 @@ public class TargetHud extends HudModule implements Config.DefaultOn {
         Draw.panel(g, x, y, x + pw, y + ph, Draw.bg());
         Draw.round(g, x + 2, y + 4, x + 4, y + ph - 4, 1, Draw.accent());
 
-        Draw.text(g, t.getName().getString(), x + 8, y + 5, Draw.WHITE);
         String hpText = String.format(java.util.Locale.ROOT, "%.1f", hp);
+        Draw.text(g, Draw.trim(t.getName().getString(), pw - 20 - Draw.width(hpText + " HP")), x + 8, y + 5, Draw.WHITE);
         Draw.textRight(g, hpText + " HP", x + pw - 5, y + 5, absorption > 0 ? 0xFFFFD700 : Draw.healthColor(health, max));
 
         int bx1 = x + 8, bx2 = x + pw - 6, by = y + 18;
-        Draw.rect(g, bx1, by, bx2, by + 6, 0xFF202028);
+        Draw.round(g, bx1, by, bx2, by + 6, 2, 0xFF202028);
         float f = Math.max(0f, Math.min(1f, shownHp / max));
-        Draw.rect(g, bx1, by, bx1 + (int) ((bx2 - bx1) * f), by + 6, Draw.healthColor(shownHp, max));
+        int fill = (int) ((bx2 - bx1) * f);
+        if (fill >= 4) Draw.round(g, bx1, by, bx1 + fill, by + 6, 2, Draw.healthColor(shownHp, max));
+        else if (fill > 0) Draw.rect(g, bx1, by, bx1 + fill, by + 6, Draw.healthColor(shownHp, max));
         if (absorption > 0) {
             // Поглощение (золотые сердца) - жёлтая полоска поверх
             float fa = Math.max(0f, Math.min(1f, absorption / max));

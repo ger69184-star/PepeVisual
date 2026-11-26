@@ -19,7 +19,7 @@ import ru.visual.client.util.R3D;
 /** Таймер подожжённого динамита и предупреждение о шипящем крипере. */
 public class Explosions extends Module implements Config.DefaultOn {
     private final BoolSetting tnt = add(new BoolSetting("Динамит", "Секунды до взрыва над подожжённым динамитом.", true));
-    private final BoolSetting creepers = add(new BoolSetting("Криперы", "Предупреждение, когда крипер начинает шипеть.", true));
+    private final BoolSetting creepers = add(new BoolSetting("Криперы", "Секунды до взрыва над шипящим крипером.", true));
     private final BoolSetting radius = add(new BoolSetting("Радиус взрыва", "Круг на земле - примерная зона поражения.", true));
 
     public Explosions() {
@@ -61,7 +61,9 @@ public class Explosions extends Module implements Config.DefaultOn {
             } else if (creepers.get() && e instanceof Creeper c) {
                 float s = c.getSwelling(pt);
                 if (s <= 0.01f) continue;
-                text = "Крипер! " + (int) (s * 100) + "%";
+                // getSwelling = swell / (maxSwell - 2), взрыв при swell >= maxSwell (30 тиков = 1.5 с)
+                float left = (30f - s * 28f) / 20f;
+                text = String.format("Крипер %.1f с", Math.max(0f, left));
                 col = fuseColor(1f - s);
             }
             if (text == null) continue;

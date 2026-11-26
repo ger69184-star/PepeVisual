@@ -116,7 +116,7 @@ public class SessionStats extends HudModule {
         for (String[] r : rows) w = Math.max(w, Draw.width(r[0]) + Draw.width(r[1]) + 16);
         w = Math.max(w, Draw.width("Сессия") + 12);
         int sh = mc.getWindow().getGuiScaledHeight();
-        int x = 4 + ox(), y = sh / 2 + 40 + oy();
+        int x = 4 + ox(), y = left(sh / 2 + 40);
         int h = 14 + rows.length * 10 + 3;
         Draw.panel(g, x, y, x + w, y + h, Draw.bg());
         Draw.text(g, "Сессия", x + 6, y + 3, Draw.accent());

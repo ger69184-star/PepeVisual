@@ -19,7 +19,6 @@ public final class ModuleManager {
 
     // Нужны миксинам и обработчикам HUD
     public static NoRender noRender;
-    public static Optimization optimization;
     public static HitAnimations hitAnimations;
     public static CustomCrosshair crosshair;
     public static PepeBackground pepe;
@@ -50,7 +49,8 @@ public final class ModuleManager {
     static void onToggled(Module m) {
         configDirty = true;
         saveTimer = 0;
-        Notifications.onToggle(m);
+        // Уведомление только при включении клавишей в игре: в меню и так видно, что нажал
+        if (Minecraft.getInstance().screen == null) Notifications.onToggle(m);
     }
 
     /** Отметить, что настройки изменились (меню, редактор HUD). */
@@ -65,13 +65,10 @@ public final class ModuleManager {
         MODULES.add(new TargetEsp());
         MODULES.add(new Trajectories());
         MODULES.add(new ItemEsp());
-        MODULES.add(new Tracers());
         MODULES.add(new Glow());
         MODULES.add(new JumpCircles());
-        MODULES.add(new Trails());
         MODULES.add(new DamageIndicators());
         MODULES.add(new HitParticles());
-        MODULES.add(new HitsToKill());
         hitAnimations = new HitAnimations();
         MODULES.add(hitAnimations);
         crosshair = new CustomCrosshair();
@@ -83,9 +80,7 @@ public final class ModuleManager {
         MODULES.add(new WorldTime());
         MODULES.add(new StorageEsp());
         MODULES.add(new ShulkerPreview());
-        MODULES.add(new ChinaHat());
         MODULES.add(new ViewModel());
-        MODULES.add(new AspectRatio());
         MODULES.add(new Arrows());
         MODULES.add(new SpawnHighlight());
         MODULES.add(new Explosions());
@@ -107,7 +102,6 @@ public final class ModuleManager {
         MODULES.add(new Radar());
         MODULES.add(new Keystrokes());
         MODULES.add(new ServerInfo());
-        MODULES.add(new HealthIndicator());
         MODULES.add(new HungerHud());
         MODULES.add(new DurabilityWarning());
         MODULES.add(new Notifications());
@@ -141,8 +135,9 @@ public final class ModuleManager {
         MODULES.add(new Waypoints());
         MODULES.add(new DeathInfo());
         MODULES.add(new LogoutSpots());
-        optimization = new Optimization();
-        MODULES.add(optimization);
+
+        // ---- Optimization: каждая настройка - отдельная кнопка ----
+        MODULES.addAll(GraphicsTweak.createAll());
 
         // Клавиша включения для каждой функции (меняется в меню клиента)
         for (Module m : MODULES) {
@@ -165,7 +160,7 @@ public final class ModuleManager {
     }
 
     public static String bindName(Module m) {
-        if (m.bind == null || m.bind.isUnbound()) return "не назначена";
+        if (m.bind == null || m.bind.isUnbound()) return "нет";
         return m.bind.getTranslatedKeyMessage().getString();
     }
 
@@ -215,6 +210,7 @@ public final class ModuleManager {
         frame++;
         if (mc.player == null || mc.level == null) return;
         ru.visual.client.util.Projection.update(mc, delta.getGameTimeDeltaPartialTick(false));
+        HudModule.beginFrame();
         for (Module m : MODULES) {
             if (m.isEnabled()) {
                 ru.visual.client.util.Draw.tracking = m instanceof HudModule hm ? hm : null;
@@ -224,6 +220,7 @@ public final class ModuleManager {
                     error(m, "hud", t);
                 }
                 ru.visual.client.util.Draw.tracking = null;
+                if (m instanceof HudModule hm) hm.afterHud();
             }
         }
     }
@@ -254,5 +251,8 @@ public final class ModuleManager {
             } catch (Throwable ignored) {}
         }
         Config.save();
+        // настройки графики уже возвращены кнопками оптимизации - записываем исходные значения в options.txt
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.options != null) mc.options.save();
     }
 }

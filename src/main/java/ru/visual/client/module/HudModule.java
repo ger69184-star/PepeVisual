@@ -14,8 +14,21 @@ public abstract class HudModule extends Module {
     private int bx1, by1, bx2, by2;
     private long boundsFrame = -1;
 
+    /**
+     * Автораскладка: несдвинутые элементы у левого/правого края встают друг под другом и не налезают
+     * (раньше InventoryHud, Keystrokes и SessionStats рисовались один поверх другого, а длинный ModuleList закрывал ItemCounter).
+     * [1] - левая колонка, [2] - правая: нижний край последнего элемента в этом кадре.
+     */
+    private static final int[] FLOW = new int[3];
+    private int flowCol;
+    /** На сколько автораскладка опустила элемент (чтобы при перетаскивании он не прыгал). */
+    private int flowShift;
+
     protected HudModule(String name, String description) {
         super(name, description, Category.HUD);
+        // позиция двигается мышью в редакторе HUD - ползунки -1000..1000 в меню только мешали
+        offX.hidden = true;
+        offY.hidden = true;
     }
 
     protected int ox() {
@@ -24,6 +37,39 @@ public abstract class HudModule extends Module {
 
     protected int oy() {
         return offY.asInt();
+    }
+
+    /** Y для элемента в левой колонке (defY - место по умолчанию). */
+    protected int left(int defY) {
+        return place(1, defY);
+    }
+
+    /** Y для элемента в правой колонке. */
+    protected int right(int defY) {
+        return place(2, defY);
+    }
+
+    private int place(int col, int defY) {
+        if (offX.asInt() != 0 || offY.asInt() != 0) {
+            flowShift = 0;
+            return defY + oy(); // игрок сам поставил элемент - не трогаем
+        }
+        flowCol = col;
+        int y = Math.max(defY, FLOW[col]);
+        flowShift = y - defY;
+        return y;
+    }
+
+    /** Начало кадра HUD (ModuleManager.renderHud). */
+    public static void beginFrame() {
+        FLOW[1] = 0;
+        FLOW[2] = 0;
+    }
+
+    /** После onHud: занятое место уходит в колонку, следующий элемент встанет ниже. */
+    public void afterHud() {
+        if (flowCol != 0 && boundsFrame == ModuleManager.frame()) FLOW[flowCol] = Math.max(FLOW[flowCol], by2 + 3);
+        flowCol = 0;
     }
 
     /** Запомнить занятую область (вызывай из onHud). Несколько вызовов за кадр объединяются. */
@@ -56,6 +102,10 @@ public abstract class HudModule extends Module {
 
     /** Сдвинуть элемент на dx/dy пикселей (из редактора HUD). */
     public void moveBy(int dx, int dy) {
+        if (offX.asInt() == 0 && offY.asInt() == 0 && flowShift != 0) {
+            offY.set((double) flowShift); // элемент стоял ниже из-за автораскладки - начинаем двигать с того же места
+            flowShift = 0;
+        }
         offX.set(offX.get() + dx);
         offY.set(offY.get() + dy);
     }

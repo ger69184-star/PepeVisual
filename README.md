@@ -23,34 +23,47 @@
 - Режим стройки (BuildHelper): **G** - подтвердить/далее, **R** - повернуть чертёж, **H** - отмена/пауза (меняются в Настройки -> Управление).
 
 ## Разделы
-**Visual:** PlayerESP, TargetESP, **HitsToKill (сколько ударов до смерти цели)**, Trajectories (жемчуг эндера и др.), ItemESP (ценные предметы, луч),
-Tracers, Glow (игроки/мобы/предметы, свой цвет), JumpCircles, Trails, DamageIndicators, HitParticles, HitAnimations, Crosshair,
-Fullbright, Zoom (плавный, колесо мыши), **Block Outline**, **Custom Fog**, **World Time**, **StorageESP**, **ChinaHat**, **ViewModel**, **Aspect Ratio**.
+**Visual:** PlayerESP, TargetESP, Trajectories (жемчуг эндера и др.), ItemESP (ценные предметы, луч),
+Glow (игроки/мобы/предметы, свой цвет), JumpCircles, DamageIndicators, HitParticles, HitAnimations, Crosshair,
+Fullbright, Zoom (плавный, колесо мыши), **Block Outline**, **Custom Fog**, **World Time**, **StorageESP**, **ViewModel**.
 **Helper:** **AutoBrew** (бот сам ходит между зельеварками), **BuildHelper (стройка по чертежам)**, **ChestSorter**, AutoFarm, DungeonFinder, BaseFinder.
 **Visual (новое):** **ShulkerPreview** (содержимое шалкера/сундука по прицелу и в инвентаре), **Arrows** (стрелки на игроков вокруг прицела),
-**SpawnHighlight** (где спавнятся мобы), **Explosions** (таймер динамита, шипящие криперы), **Breadcrumbs** (след пройденного пути).
+**SpawnHighlight** (где спавнятся мобы), **Explosions** (секунды до взрыва динамита и крипера), **Breadcrumbs** (след пройденного пути).
 **Helper (новое):** **AutoTool** (лучший инструмент при копании), **AutoEat** (авто-еда). **Utility:** **LogoutSpots** (где игрок вышел).
 **HUD (новое):** **Compass** (лента компаса с метками), **InventoryHUD**, **SessionStats** (время, блоки, убийства, смерти, путь).
 **Movement:** AutoSprint, AutoWalk, **FreeLook** (камера от 3 лица вращается мышью, персонаж бежит вперёд и не поворачивается),
 **AutoWindCharge** (авто-сфера воздуха: ветряной заряд под ноги), **AutoPearl** (жемчуг за целью из Target ESP).
 **HUD:** **PepeBackground (лягушонок на заднем плане)**, Interface, Watermark, TargetHUD, ModuleList, Info, ArmorHUD, PotionHUD,
-ItemCounter, Cooldowns, NearbyPlayers, Radar, Keystrokes, **Server Info**, **Health Indicator**, **Saturation**, **Durability Warning**, **Notifications**.
-**NoRender**, **Utility** (AutoRespawn, **Waypoints**, **Death Info**), **Optimization**.
+ItemCounter, Cooldowns, NearbyPlayers, Radar, Keystrokes, **Server Info**, **Saturation**, **Durability Warning**, **Notifications**.
+**NoRender**, **Utility** (AutoRespawn, **Waypoints**, **Death Info**), **Optimization** (отдельные кнопки, см. ниже).
 
-### Новое в этой версии
+### Обновление 4: удобство
+- Убраны лишние функции: Tracers, Trails, HitsToKill, ChinaHat, Aspect Ratio, Health Indicator.
+- **Optimization** - теперь отдельные кнопки вместо одного модуля с кучей галочек: No Clouds, Less Particles, No Entity Shadows,
+  No Biome Blend, Entity Distance, Background FPS, Fast Leaves, No Smooth Light, Less Weather, No Chunk Fade, No Menu Blur.
+  Сверху раздела - пресеты **Максимум FPS / Баланс / Всё выключить**. Выключил кнопку - настройка игры вернулась как была;
+  поменял настройку сам в настройках игры - кнопка её больше не трогает (в списке пишет «вручную»).
+- **Explosions**: над крипером секунды до взрыва («Крипер 0,8 с») вместо процентов.
+- Меню: режимы выбираются из выпадающего списка; **ПКМ по любой настройке - вернуть значение по умолчанию** (оно видно в подсказке).
+- Ползунки «Смещение X/Y» у HUD убраны из меню - элементы двигаются мышью в редакторе HUD.
+- HUD-элементы у краёв экрана больше не налезают друг на друга: несдвинутые встают друг под другом автоматически.
+- Редактор HUD: скруглённые рамки, **R** - сбросить все позиции, список включённых элементов, которых сейчас не видно;
+  TargetHUD в редакторе показывается на тебе, чтобы его можно было передвинуть.
+- Уведомления о включении функций - только при нажатии клавиши в игре (в меню и так видно).
+- ModuleList не показывает кнопки оптимизации; Info - одна аккуратная плашка в стиле остального HUD.
+- Исправлено: TargetESP мог держать цель из другого измерения; лягушонок в шапке меню не слушался настроек PepeBackground.
+
+### Новое в прошлых версиях
 | Функция | Что делает |
 |---|---|
 | Block Outline | Цвет/радуга, толщина и пульсация обводки блока под прицелом |
 | Custom Fog | Убрать туман или изменить его дальность и цвет (можно и в воде/лаве) |
 | World Time | Своё время суток (фиксированное или быстрый цикл), видно только тебе |
 | StorageESP | Сундуки, эндер-сундуки, шалкеры, бочки, печки, воронки, спавнеры сквозь стены |
-| ChinaHat | Конус-шляпа над головой (от 3-го лица и на других игроках) |
 | ViewModel | Сдвиг и размер рук/предметов от первого лица |
-| Aspect Ratio | "Растянутое" разрешение 4:3, 5:4, 16:10, 1:1 или своё |
 | Waypoints | Метки на экране, отдельно для каждого сервера и измерения |
 | Death Info | Координаты, измерение и причина смерти в чат + метка "Смерть" |
 | Server Info | Адрес сервера, TPS, пинг, онлайн, время сессии |
-| Health Indicator | Полоска HP существа под прицелом |
 | Saturation | Сытость и скрытое насыщение |
 | Durability Warning | Мигающее предупреждение и звук при низкой прочности брони/инструмента |
 | Notifications | Всплывающие уведомления о включении/выключении функций |
@@ -63,12 +76,10 @@ ItemCounter, Cooldowns, NearbyPlayers, Radar, Keystrokes, **Server Info**, **Hea
 - Glow ничего не делал (флаг свечения на клиенте перезаписывается сервером) и снимал настоящее свечение - теперь через миксин.
 - Zoom менял настройку FOV и мог "залипнуть" после вылета - теперь подменяет FOV только при отрисовке.
 - Fullbright выдавал клиентское Ночное зрение и снимал настоящее зелье - теперь через яркость карты освещения.
-- Optimization: урезанные настройки графики попадали в `options.txt`; ручные изменения настроек затирались каждую секунду.
 - Конфиг сохранялся только при закрытии меню/игры - теперь и через 2 секунды после изменения (не теряется при вылете).
 - При запуске игры `onEnable` вызывался до создания мира.
 - AutoFarm: ломал тыквы/арбузы в разы медленнее (continueDestroyBlock раз в N тиков), ломал декоративные тыквы, не возвращал слот хотбара, не смотрел на блок.
 - JumpCircles не работал для других игроков (их скорость на клиенте всегда 0).
-- HitsToKill/HitCalc: эффект Сопротивления определялся по строке названия.
 - TargetHUD: поглощение (золотые сердца) искажало полосу HP.
 - Info: CPS терял быстрые клики (считался раз в тик), направление было на английском.
 - Меню: ползунок смещён на 2 пикселя относительно мыши; `ColorSetting.get()` возвращал исходный цвет.

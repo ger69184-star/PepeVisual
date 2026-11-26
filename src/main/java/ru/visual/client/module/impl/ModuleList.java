@@ -23,16 +23,17 @@ public class ModuleList extends HudModule implements Config.DefaultOn {
     public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
         List<Module> on = new ArrayList<>();
         for (Module m : ModuleManager.MODULES) {
-            if (m.isEnabled() && m.category != Category.HUD) on.add(m);
+            // HUD-элементы и кнопки оптимизации в списке только мешают
+            if (m.isEnabled() && m.category != Category.HUD && m.category != Category.OPTIMIZATION) on.add(m);
         }
         on.sort(Comparator.comparingInt((Module m) -> -Draw.width(label(m))));
         int w = mc.getWindow().getGuiScaledWidth() + ox();
-        int y = 4 + oy(), i = 0;
+        int y = right(4), i = 0;
         for (Module m : on) {
             String s = label(m);
             int tw = Draw.width(s);
             int c = Draw.bar(i);
-            Draw.panel(g, w - tw - 8, y, w - 2, y + 11, Draw.bg());
+            Draw.panel(g, w - tw - 8, y, w - 2, y + 11, Draw.bg(), false);
             Draw.rect(g, w - 4, y + 2, w - 3, y + 9, c);
             Draw.text(g, m.name, w - tw - 5, y + 2, c);
             if (m.info() != null) Draw.text(g, " " + m.info(), w - tw - 5 + Draw.width(m.name), y + 2, Draw.GRAY);

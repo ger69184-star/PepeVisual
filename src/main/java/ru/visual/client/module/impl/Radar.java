@@ -26,7 +26,7 @@ public class Radar extends HudModule {
     public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
         float pt = delta.getGameTimeDeltaPartialTick(false);
         int s = size.asInt();
-        int x = 4 + ox(), y = 92 + oy();
+        int x = 4 + ox(), y = left(92);
         int cx = x + s / 2, cy = y + s / 2;
         Draw.panel(g, x, y, x + s, y + s, Draw.bg());
         Draw.roundOutline(g, x, y, x + s, y + s, Draw.r(), Draw.withAlpha(Draw.accent(), 160));

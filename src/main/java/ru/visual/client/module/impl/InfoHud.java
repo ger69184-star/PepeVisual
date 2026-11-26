@@ -56,16 +56,25 @@ public class InfoHud extends HudModule implements Config.DefaultOn {
         if (ping.get()) lines.add("Пинг: " + PlayerUtil.ping(mc) + " мс");
         if (cps.get()) lines.add("CPS: " + Cps.left() + " | " + Cps.right());
 
-        int yy = 22 + oy();
-        int xx = 4 + ox();
-        int top = yy - 1, right = xx;
-        for (String s : lines) {
-            Draw.rect(g, xx, yy - 1, xx + 4 + Draw.width(s), yy + 10, 0x80000000);
-            Draw.text(g, s, xx + 2, yy, Draw.WHITE);
-            right = Math.max(right, xx + 4 + Draw.width(s));
-            yy += 12;
+        if (lines.isEmpty()) return;
+        // одна плашка в стиле остального HUD (раньше каждая строка была отдельным серым прямоугольником)
+        int xx = 4 + ox(), yy = left(22);
+        int w = 0;
+        for (String s : lines) w = Math.max(w, Draw.width(s));
+        int h = lines.size() * 10 + 5;
+        Draw.panel(g, xx, yy, xx + w + 10, yy + h, Draw.bg());
+        for (int i = 0; i < lines.size(); i++) {
+            String s = lines.get(i);
+            int ty = yy + 3 + i * 10;
+            int colon = s.indexOf(':');
+            if (colon > 0) {
+                String label = s.substring(0, colon + 1);
+                Draw.text(g, label, xx + 5, ty, Draw.GRAY);
+                Draw.text(g, s.substring(colon + 1), xx + 5 + Draw.width(label), ty, Draw.WHITE);
+            } else {
+                Draw.text(g, s, xx + 5, ty, Draw.WHITE);
+            }
         }
-        if (!lines.isEmpty()) bounds(xx, top, right, yy - 2);
     }
 
     private static String facingName(net.minecraft.core.Direction d) {

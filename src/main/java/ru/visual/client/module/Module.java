@@ -62,6 +62,11 @@ public abstract class Module {
     protected void onEnable() {}
     protected void onDisable() {}
 
+    /** Включена ли функция при первом запуске (нет конфига). */
+    public boolean defaultEnabled() {
+        return this instanceof Config.DefaultOn;
+    }
+
     /** true - onTick вызывается и в главном меню (когда мира нет). */
     public boolean tickOutsideWorld() {
         return false;

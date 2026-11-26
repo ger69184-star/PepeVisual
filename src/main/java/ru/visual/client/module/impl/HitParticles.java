@@ -13,7 +13,7 @@ import ru.visual.client.setting.NumSetting;
 import java.util.Random;
 
 public class HitParticles extends Module {
-    private final ModeSetting type = add(new ModeSetting("Частицы", "Какие частицы появляются при ударе. ЛКМ - дальше, ПКМ - назад.", "Крит",
+    private final ModeSetting type = add(new ModeSetting("Частицы", "Какие частицы появляются при ударе.", "Крит",
             "Крит", "Магический крит", "Сердца", "Огонь", "Звёзды", "Тотем", "Синий огонь", "Ноты"));
     private final NumSetting count = add(new NumSetting("Количество", "Сколько частиц появляется за один удар.", 12, 2, 40, 1));
     private final Random rnd = new Random();

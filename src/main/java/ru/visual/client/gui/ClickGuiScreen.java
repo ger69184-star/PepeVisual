@@ -14,6 +14,7 @@ import ru.visual.client.module.Category;
 import ru.visual.client.module.Config;
 import ru.visual.client.module.Module;
 import ru.visual.client.module.ModuleManager;
+import ru.visual.client.module.impl.GraphicsTweak;
 import ru.visual.client.module.impl.PepeBackground;
 import ru.visual.client.setting.BoolSetting;
 import ru.visual.client.setting.ColorSetting;
@@ -65,6 +66,10 @@ public class ClickGuiScreen extends Screen {
     private final Map<String, float[]> scroll = new HashMap<>();
 
     private Drag dragging;
+    /** Открытый выпадающий список режима и его якорь (правый край плашки, низ строки). */
+    private ModeSetting dropdown;
+    private boolean dropdownSeen;
+    private int ddRight, ddTop, ddRowTop, ddMinW;
     private Module binding;
     private String tooltip;
     private String search = "";
@@ -155,8 +160,15 @@ public class ClickGuiScreen extends Screen {
 
         int cx = (x0 + x1) / 2;
         int bob = (int) Math.round(Math.sin(now / 520.0) * 1.5);
-        Draw.shadow(g, cx - 5, y0 + 11, cx + 5, y0 + 21, 12, Draw.withAlpha(accent, 0x55));
-        PepeBackground.draw(g, cx - 14, y0 + 2 + bob, 28, 1.0);
+        PepeBackground pepe = ModuleManager.pepe;
+        if (pepe != null && pepe.isEnabled()) {
+            // Лягушонок в меню один - по центру шапки. Размер и прозрачность берутся из настроек PepeBackground
+            // (по умолчанию 110 px / 0.35 -> 28 px и полностью видимый логотип).
+            int ps = Mth.clamp(pepe.sizePx() / 4, 18, 30);
+            double pa = Mth.clamp(pepe.opacity() * 2.85, 0.2, 1.0);
+            Draw.shadow(g, cx - 5, y0 + 11, cx + 5, y0 + 21, 12, Draw.withAlpha(accent, (int) (0x55 * pa)));
+            PepeBackground.draw(g, cx - ps / 2, y0 + (TOP - ps) / 2 + bob, ps, pa);
+        }
 
         int sw = Math.min(140, W / 4), sx2 = x1 - 10, sx1 = sx2 - sw, sy1 = y0 + 8, sy2 = y0 + 24;
         boolean sHover = in(mx, my, sx1, sy1, sx2, sy2);
@@ -227,8 +239,13 @@ public class ClickGuiScreen extends Screen {
         contentY1 = y0 + TOP + 6;
         contentY2 = y1 - 18;
         String hint = binding != null ? "Нажми клавишу для " + binding.name + "   Esc - отмена   Delete - сбросить"
-                : "ЛКМ - вкл/выкл   ПКМ - настройки   колёсико - прокрутка   печатай - поиск";
+                : "ЛКМ - вкл/выкл   ПКМ - настройки   ПКМ по настройке - по умолчанию   печатай - поиск";
         Draw.text(g, Draw.trim(hint, contentX2 - contentX1), contentX1 + 2, y1 - 13, binding != null ? 0xFFFFE070 : C_DIM);
+
+        if (!searching && selected == Category.OPTIMIZATION) {
+            drawPresets(g, mx, my, accent);
+            contentY1 += 24;
+        }
 
         List<Module> mods = new ArrayList<>();
         if (searching) {
@@ -289,6 +306,85 @@ public class ClickGuiScreen extends Screen {
             if (off > 1) g.fillGradient(contentX1, contentY1, contentX2, contentY1 + 8, C_WINDOW, 0x00111118);
             if (off < maxScroll - 1) g.fillGradient(contentX1, contentY2 - 8, contentX2, contentY2, 0x00111118, C_WINDOW);
         }
+
+        if (dropdown != null && !dropdownSeen) dropdown = null; // строка уехала из вида - список закрываем
+        if (dropdown != null) drawDropdown(g, mx, my, accent, y1);
+        dropdownSeen = false;
+    }
+
+    /** Пресеты оптимизации: включают/выключают сразу несколько кнопок, ничего не нужно искать по файлам. */
+    private void drawPresets(GuiGraphics g, int mx, int my, int accent) {
+        List<GraphicsTweak<?>> tweaks = new ArrayList<>();
+        for (Module m : ModuleManager.byCategory(Category.OPTIMIZATION)) if (m instanceof GraphicsTweak<?> t) tweaks.add(t);
+        int state = presetState(tweaks);
+        String[] names = {"Максимум FPS", "Баланс", "Всё выключить"};
+        String[] tips = {
+                "Включить все кнопки оптимизации. Больше всего FPS, картинка заметно проще.",
+                "Включить только то, что почти не портит картинку: облака, частицы, тени, смешивание биомов и т.д.",
+                "Выключить все кнопки - графика станет как в обычных настройках игры."};
+        int gap = 6, n = names.length;
+        int bw = (contentX2 - contentX1 - gap * (n - 1)) / n;
+        for (int i = 0; i < n; i++) {
+            int bx1 = contentX1 + i * (bw + gap), bx2 = bx1 + bw, by1 = contentY1, by2 = contentY1 + 18;
+            boolean hov = in(mx, my, bx1, by1, bx2, by2);
+            boolean active = state == i;
+            Draw.round(g, bx1, by1, bx2, by2, 6, active ? Draw.withAlpha(accent, 0x90) : hov ? 0xFF2C2C3A : C_CARD);
+            if (!active && hov) Draw.roundOutline(g, bx1, by1, bx2, by2, 6, Draw.withAlpha(accent, 0x70));
+            Draw.textCentered(g, Draw.trim(names[i], bw - 8), (bx1 + bx2) / 2, by1 + 5, active ? 0xFFFFFFFF : C_TEXT);
+            final int preset = i;
+            hits.add(new Hit(bx1, by1, bx2, by2, () -> applyPreset(tweaks, preset), null, null));
+            if (hov) tooltip = tips[i];
+        }
+    }
+
+    /** 0 - всё включено, 1 - ровно "Баланс", 2 - всё выключено, -1 - своё сочетание. */
+    private static int presetState(List<GraphicsTweak<?>> tweaks) {
+        boolean all = true, none = true, bal = true;
+        for (GraphicsTweak<?> t : tweaks) {
+            if (t.isEnabled()) none = false;
+            else all = false;
+            if (t.isEnabled() != t.balanced) bal = false;
+        }
+        return all ? 0 : bal ? 1 : none ? 2 : -1;
+    }
+
+    private static void applyPreset(List<GraphicsTweak<?>> tweaks, int preset) {
+        for (GraphicsTweak<?> t : tweaks) {
+            boolean want = preset == 0 || (preset == 1 && t.balanced);
+            if (t.isEnabled() != want) t.setEnabled(want);
+            t.applyNow();
+        }
+    }
+
+    /** Выпадающий список поверх всего окна. */
+    private void drawDropdown(GuiGraphics g, int mx, int my, int accent, int windowBottom) {
+        ModeSetting md = dropdown;
+        int itemH = 13;
+        int w = ddMinW;
+        for (String mode : md.modes) w = Math.max(w, Draw.width(mode) + 16);
+        int h = md.modes.length * itemH + 4;
+        int x2 = ddRight, x1 = Math.max(4, x2 - w);
+        int y1 = ddTop;
+        if (y1 + h > windowBottom - 4) y1 = Math.max(4, ddRowTop - h + 2); // не влезает вниз - открываем вверх
+        // клик мимо списка закрывает его (и больше ничего не делает)
+        hits.add(new Hit(-10000, -10000, 10000, 10000, () -> dropdown = null, () -> dropdown = null, null));
+        Draw.shadow(g, x1, y1, x1 + w, y1 + h, 8, 0x90000000);
+        Draw.round(g, x1, y1, x1 + w, y1 + h, 5, 0xFA1C1C27);
+        Draw.roundOutline(g, x1, y1, x1 + w, y1 + h, 5, Draw.withAlpha(accent, 0x90));
+        for (int i = 0; i < md.modes.length; i++) {
+            int iy = y1 + 2 + i * itemH;
+            boolean cur = i == md.index();
+            boolean hov = in(mx, my, x1 + 2, iy, x1 + w - 2, iy + itemH);
+            if (cur) Draw.round(g, x1 + 2, iy, x1 + w - 2, iy + itemH, 4, Draw.withAlpha(accent, 0x60));
+            else if (hov) Draw.round(g, x1 + 2, iy, x1 + w - 2, iy + itemH, 4, 0x18FFFFFF);
+            Draw.text(g, md.modes[i], x1 + 8, iy + 3, cur || hov ? 0xFFFFFFFF : 0xFFC0C0D0);
+            final String mode = md.modes[i];
+            hits.add(new Hit(x1 + 2, iy, x1 + w - 2, iy + itemH, () -> {
+                md.set(mode);
+                dropdown = null;
+            }, () -> dropdown = null, null));
+        }
+        if (in(mx, my, x1, y1, x1 + w, y1 + h)) tooltip = null;
     }
 
     private void sideButton(GuiGraphics g, int bx1, int by1, int bx2, int by2, int mx, int my, String label, String tip, Runnable action) {
@@ -306,7 +402,7 @@ public class ClickGuiScreen extends Screen {
 
     private static int settingsHeight(Module m) {
         int h = ROW + 6; // строка клавиши + отступы
-        for (Setting<?> s : m.settings) h += rowHeight(s);
+        for (Setting<?> s : m.settings) if (!s.hidden) h += rowHeight(s);
         return h;
     }
 
@@ -365,6 +461,7 @@ public class ClickGuiScreen extends Screen {
         }
 
         for (Setting<?> s : m.settings) {
+            if (s.hidden) continue;
             int rh = rowHeight(s);
             boolean hov = rowHover(mx, my, x, ry, w, rh, cardBottom);
             boolean vis = rowVisible(ry, rh, cardBottom);
@@ -377,7 +474,7 @@ public class ClickGuiScreen extends Screen {
                 int tx = rx2 - 16, tyy = ry + 4;
                 Draw.round(g, tx, tyy, tx + 16, tyy + 8, 4, Draw.mix(0xFF3A3A4A, accent | 0xFF000000, sa[0]));
                 Draw.circle(g, tx + 1 + Math.round(8 * sa[0]), tyy + 1, 6, 0xFFFFFFFF);
-                if (vis) hits.add(new Hit(x, ry, x + w, ry + rh, b::toggle, null, null));
+                if (vis) hits.add(new Hit(x, ry, x + w, ry + rh, b::toggle, () -> b.set(b.def), null));
             } else if (s instanceof NumSetting n) {
                 float f = (float) ((n.get() - n.min) / (n.max - n.min));
                 sa[0] = approach(sa[0], f, 20f);
@@ -396,16 +493,35 @@ public class ClickGuiScreen extends Screen {
                         double k = Mth.clamp((mouseX - a1) / (double) (a2 - a1), 0, 1);
                         n.set(n.min + k * (n.max - n.min));
                     };
-                    hits.add(new Hit(x, ry, x + w, ry + rh, null, null, d));
+                    hits.add(new Hit(x, ry, x + w, ry + rh, null, n::reset, d));
                 }
             } else if (s instanceof ModeSetting md) {
                 String val = md.get();
                 int pw = Math.min(Draw.width(val) + 12, (rx2 - rx1) / 2 + 20);
                 String shown = Draw.trim(val, pw - 10);
                 Draw.text(g, Draw.trim(md.name, rx2 - rx1 - pw - 6), rx1, ry + 4, C_TEXT);
-                Draw.round(g, rx2 - pw, ry + 2, rx2, ry + rh - 2, 4, Draw.withAlpha(accent, hov ? 0x60 : 0x38));
-                Draw.textCentered(g, shown, rx2 - pw / 2, ry + 4, 0xFFFFFFFF);
-                if (vis) hits.add(new Hit(x, ry, x + w, ry + rh, () -> md.cycle(1), () -> md.cycle(-1), null));
+                boolean open = dropdown == md;
+                Draw.round(g, rx2 - pw - 8, ry + 2, rx2, ry + rh - 2, 4, Draw.withAlpha(accent, open ? 0x80 : hov ? 0x60 : 0x38));
+                Draw.textCentered(g, shown, rx2 - 8 - pw / 2, ry + 4, 0xFFFFFFFF);
+                // стрелка списка (рисуем сами - в шрифте может не быть символа)
+                int ax = rx2 - 8, ay = ry + rh / 2;
+                for (int k = 0; k < 3; k++) {
+                    int yy = open ? ay + 1 - k : ay - 1 + k;
+                    g.fill(ax - 2 + k, yy, ax + 3 - k, yy + 1, 0xFFDDDDEE);
+                }
+                if (vis) {
+                    hits.add(new Hit(x, ry, x + w, ry + rh, () -> {
+                        dropdown = open ? null : md;
+                        dropdownSeen = true;
+                    }, () -> md.set(md.def), null));
+                    if (open) {
+                        dropdownSeen = true;
+                        ddRight = rx2;
+                        ddTop = ry + rh - 1;
+                        ddRowTop = ry + 1;
+                        ddMinW = pw + 8;
+                    }
+                }
             } else if (s instanceof ColorSetting c) {
                 Draw.text(g, Draw.trim(c.name, rx2 - rx1 - 16), rx1, ry + 3, C_TEXT);
                 Draw.circle(g, rx2 - 9, ry + 2, 9, c.argb() | 0xFF000000);
@@ -443,14 +559,19 @@ public class ClickGuiScreen extends Screen {
                 }
             }
             if (hov) {
-                String extra = s instanceof ModeSetting ? "\nЛКМ - следующий, ПКМ - предыдущий"
+                String extra = s instanceof ModeSetting ? "\nЛКМ - выбрать из списка, ПКМ - по умолчанию (" + s.def + ")"
                         : s instanceof ColorSetting ? "\nТяни мышью по полосе, ПКМ - радуга"
-                        : s instanceof NumSetting ? "\nЗажми и тяни" : "";
+                        : s instanceof NumSetting n2 ? "\nЗажми и тяни, ПКМ - по умолчанию (" + defText(n2) + ")"
+                        : s instanceof BoolSetting b2 ? "\nПКМ - по умолчанию (" + (b2.def ? "вкл" : "выкл") + ")" : "";
                 tooltip = s.description + extra;
             }
             ry += rh;
         }
         g.disableScissor();
+    }
+
+    private static String defText(NumSetting n) {
+        return n.step >= 1 ? String.valueOf(Math.round(n.def)) : String.format(Locale.ROOT, n.step >= 0.1 ? "%.1f" : "%.2f", n.def);
     }
 
     private boolean rowVisible(int ry, int rh, int cardBottom) {
@@ -548,6 +669,7 @@ public class ClickGuiScreen extends Screen {
         if (lx >= contentX1 - 4 && lx < contentX2 + 8 && ly >= contentY1 && ly < contentY2) {
             String key = search.isEmpty() ? selected.name() : "#search";
             scroll.computeIfAbsent(key, k -> new float[2])[1] -= (float) (sy * 28);
+            dropdown = null;
             return true;
         }
         return super.mouseScrolled(mx, my, sx, sy);
@@ -567,6 +689,10 @@ public class ClickGuiScreen extends Screen {
                 ModuleManager.setBind(binding, k);
                 binding = null;
             }
+            return true;
+        }
+        if (k == GLFW.GLFW_KEY_ESCAPE && dropdown != null) {
+            dropdown = null;
             return true;
         }
         if (k == GLFW.GLFW_KEY_BACKSPACE && !search.isEmpty()) {

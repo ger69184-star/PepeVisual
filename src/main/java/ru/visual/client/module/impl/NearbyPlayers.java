@@ -32,13 +32,13 @@ public class NearbyPlayers extends HudModule implements Config.DefaultOn {
         if (list.isEmpty()) return;
         list.sort(Comparator.comparingDouble(p -> mc.player.distanceToSqr(p)));
         int w = mc.getWindow().getGuiScaledWidth() + ox();
-        int y = 150 + oy();
+        int y = right(150);
         int n = 0;
         for (Player p : list) {
             if (n++ >= max.asInt()) break;
-            String s = p.getName().getString() + "  " + String.format(Locale.ROOT, "%.1f", p.getHealth()) + "  " + (int) mc.player.distanceTo(p) + "м";
+            String s = p.getName().getString() + "  " + Math.round(p.getHealth() + p.getAbsorptionAmount()) + " HP  " + (int) mc.player.distanceTo(p) + " м";
             int tw = Draw.width(s);
-            Draw.rect(g, w - tw - 8, y - 1, w - 3, y + 10, 0x80000000);
+            Draw.panel(g, w - tw - 8, y - 1, w - 3, y + 10, Draw.bg(), false);
             Draw.rect(g, w - 4, y - 1, w - 3, y + 10, Draw.healthColor(p.getHealth(), p.getMaxHealth()));
             Draw.text(g, s, w - tw - 6, y, Draw.WHITE);
             y += 12;

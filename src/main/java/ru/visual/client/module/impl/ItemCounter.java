@@ -36,12 +36,12 @@ public class ItemCounter extends HudModule implements Config.DefaultOn {
         }
         int w = mc.getWindow().getGuiScaledWidth() + ox();
         int h = mc.getWindow().getGuiScaledHeight();
-        int y = h / 2 - 60 + oy();
+        int y = right(h / 2 - 60);
         for (int i = 0; i < TRACKED.length; i++) {
             if (counts[i] == 0) continue;
             String s = "x" + counts[i];
             int tw = Draw.width(s);
-            Draw.rect(g, w - tw - 28, y - 1, w - 3, y + 17, 0x80000000);
+            Draw.panel(g, w - tw - 28, y - 1, w - 3, y + 17, Draw.bg(), false);
             g.renderItem(icons[i], w - tw - 26, y);
             Draw.text(g, s, w - tw - 7, y + 5, Draw.WHITE);
             y += 19;

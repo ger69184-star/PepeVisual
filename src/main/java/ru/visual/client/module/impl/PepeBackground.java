@@ -19,7 +19,7 @@ import ru.visual.client.setting.NumSetting;
 public class PepeBackground extends Module implements Config.DefaultOn {
     public static final Identifier TEXTURE = Identifier.fromNamespaceAndPath("pepevisual", "textures/gui/pepe.png");
 
-    private final ModeSetting position = add(new ModeSetting("Положение", "Где рисуется лягушонок на экране. ЛКМ - дальше, ПКМ - назад.", "Правый нижний угол",
+    private final ModeSetting position = add(new ModeSetting("Положение", "Где рисуется лягушонок на экране.", "Правый нижний угол",
             "Правый нижний угол", "Левый нижний угол", "Правый верхний угол", "Левый верхний угол", "По центру"));
     private final NumSetting size = add(new NumSetting("Размер", "Размер картинки в пикселях.", 110, 40, 300, 5));
     private final NumSetting opacity = add(new NumSetting("Прозрачность", "Насколько заметен лягушонок (1 = непрозрачный).", 0.35, 0.05, 1.0, 0.05));
@@ -49,6 +49,14 @@ public class PepeBackground extends Module implements Config.DefaultOn {
             default -> { x = w - s - 6; y = h - s - 6; }
         }
         draw(g, x + m.offX.asInt(), y + m.offY.asInt(), s, m.opacity.get());
+    }
+
+    public int sizePx() {
+        return size.asInt();
+    }
+
+    public double opacity() {
+        return opacity.get();
     }
 
     /** Рисует лягушонка в указанном месте (используется и в меню). */

@@ -135,7 +135,12 @@ public final class Draw {
 
     /** Плашка HUD: скругление и тень берутся из Interface. */
     public static void panel(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
-        if (Theme.shadows()) shadow(g, x1, y1, x2, y2, 4, Math.min(0x70, (color >>> 24) / 2) << 24);
+        panel(g, x1, y1, x2, y2, color, true);
+    }
+
+    /** То же, но можно без тени (для плашек, стоящих вплотную друг к другу). */
+    public static void panel(GuiGraphics g, int x1, int y1, int x2, int y2, int color, boolean withShadow) {
+        if (withShadow && Theme.shadows()) shadow(g, x1, y1, x2, y2, 4, Math.min(0x70, (color >>> 24) / 2) << 24);
         round(g, x1, y1, x2, y2, Theme.radius(), color);
         track(x1, y1, x2, y2);
     }

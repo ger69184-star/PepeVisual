@@ -13,7 +13,7 @@ import ru.visual.client.setting.NumSetting;
 
 /** Анимации удара/взмаха предметом от первого лица. Применяются через миксин ItemInHandRendererMixin. */
 public class HitAnimations extends Module implements Config.DefaultOn {
-    private final ModeSetting mode = add(new ModeSetting("Анимация", "Вид взмаха рукой при ударе. ЛКМ - дальше, ПКМ - назад.", "Взмах",
+    private final ModeSetting mode = add(new ModeSetting("Анимация", "Вид взмаха рукой при ударе.", "Взмах",
             "Ванильная", "Мягкий", "Резкий", "Толчок", "Взмах", "Вращение", "Постукивание"));
     private final NumSetting power = add(new NumSetting("Сила", "Амплитуда анимации: меньше - спокойнее, больше - размашистее.", 1.0, 0.3, 2.5, 0.1));
 
