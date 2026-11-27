@@ -100,6 +100,8 @@ public class BuildHelper extends Module {
     private int rot;
     private String bpName;
     private BlockPos alignedTo;
+    /** Стык 4 чанков, по которому выровнена ферма (x, z - линия сетки), или null. */
+    private BlockPos chunkAligned;
     private final List<Cell> cells = new ArrayList<>();
     private final Set<BlockPos> skipped = new HashSet<>();
     private final Map<BlockPos, Long> recentDone = new HashMap<>();
@@ -138,6 +140,7 @@ public class BuildHelper extends Module {
         stage = Stage.SELECT_A;
         cornerA = cornerB = origin = null;
         alignedTo = null;
+        chunkAligned = null;
         cells.clear();
         skipped.clear();
         recentDone.clear();
@@ -188,6 +191,17 @@ public class BuildHelper extends Module {
         int oz = minZ + Math.max(0, (zz - d) / 2) + shiftZ.asInt();
         int oy = Math.min(a.getY(), b.getY()) + 1 - bp.ground + shiftY.asInt();
         return new BlockPos(ox, oy, oz);
+    }
+
+    /** Точка стыка чанков чертежа (линия сетки) -> смещение от origin при повороте r. */
+    private static int[] cornerLocal(Blueprint bp, int r) {
+        int cx = bp.chunkCorner[0], cz = bp.chunkCorner[1];
+        return switch (r) {
+            case 1 -> new int[]{bp.sz - cz, cx};
+            case 2 -> new int[]{bp.sx - cx, bp.sz - cz};
+            case 3 -> new int[]{cz, bp.sx - cx};
+            default -> new int[]{cx, cz};
+        };
     }
 
     private boolean fits(Blueprint bp, int r, BlockPos a, BlockPos b) {
@@ -331,9 +345,17 @@ public class BuildHelper extends Module {
         origin = originForZone(bp, rot, cornerA, b);
         BlockPos center = new BlockPos((cornerA.getX() + b.getX()) / 2, (cornerA.getY() + b.getY()) / 2, (cornerA.getZ() + b.getZ()) / 2);
         BlockPos al = alignToExisting(mc, bp, rot, center);
+        chunkAligned = null;
         if (al != null) {
             origin = al.offset(shiftX.asInt(), shiftY.asInt(), shiftZ.asInt());
             say("Чертёж выровнен по спавнеру");
+        } else if (bp.chunkCorner != null) {
+            // фермы FunTime: лимит мобов - на чанк, поэтому центр фермы ставим ровно на стык 4 чанков
+            int[] c = cornerLocal(bp, rot);
+            int wx = Math.floorDiv(center.getX() + 8, 16) * 16, wz = Math.floorDiv(center.getZ() + 8, 16) * 16;
+            origin = new BlockPos(wx - c[0] + shiftX.asInt(), origin.getY(), wz - c[1] + shiftZ.asInt());
+            chunkAligned = new BlockPos(wx, origin.getY(), wz);
+            say("Ферма выровнена по стыку 4 чанков");
         }
         buildCells(mc);
     }
@@ -512,6 +534,14 @@ public class BuildHelper extends Module {
         int w = width(bp, rot), d = depth(bp, rot);
         AABB bounds = new AABB(origin.getX(), origin.getY(), origin.getZ(), origin.getX() + w, origin.getY() + bp.sy, origin.getZ() + d);
         R3D.boxOutline(bounds.inflate(0.02), stage == Stage.DONE ? 0xC040FF90 : 0x80FFFFFF, 1.5f);
+        if (chunkAligned != null) {
+            // стык чанков: вертикальная линия и крест по границам чанков
+            double cx = chunkAligned.getX(), cz = chunkAligned.getZ(), y0 = origin.getY(), y1 = origin.getY() + bp.sy + 2;
+            R3D.line(cx, y0, cz, cx, y1, cz, 0xFFFF60D0, 3f);
+            double yy = origin.getY() + bp.ground + 0.02;
+            R3D.line(cx - w, yy, cz, cx + w, yy, cz, 0xA0FF60D0, 1.5f);
+            R3D.line(cx, yy, cz - d, cx, yy, cz + d, 0xA0FF60D0, 1.5f);
+        }
         if (stage == Stage.DONE) return;
 
         Vec3 me = mc.player.position();
@@ -604,6 +634,7 @@ public class BuildHelper extends Module {
                 add(lines, colors, "Шаг 3/3: проверь и начни", Draw.WHITE);
                 add(lines, colors, "[" + kc + "] - начать стройку, [" + kr + "] - повернуть, [" + kx + "] - заново", yellow);
                 if (alignedTo != null) add(lines, colors, "Выровнено по спавнеру " + alignedTo.toShortString(), ok);
+                if (chunkAligned != null) add(lines, colors, "Центр на стыке 4 чанков: " + chunkAligned.getX() + ", " + chunkAligned.getZ() + " (розовая линия)", ok);
                 if (existingMissing > 0) add(lines, colors, "Нет спавнера в нужном месте - выдели зону вокруг данжа", bad);
                 if (wrong > 0) add(lines, colors, "Мешают/не так стоят: " + wrong + " блоков (красные)", bad);
                 add(lines, colors, "Уже на месте: " + done + " из " + total, done > 0 ? ok : Draw.GRAY);

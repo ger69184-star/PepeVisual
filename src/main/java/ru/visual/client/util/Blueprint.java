@@ -12,6 +12,10 @@ import net.minecraft.world.level.block.VegetationBlock;
 import net.minecraft.world.level.block.AttachedStemBlock;
 import net.minecraft.world.level.block.BaseTorchBlock;
 import net.minecraft.world.level.block.ButtonBlock;
+import net.minecraft.world.level.block.BaseRailBlock;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.state.properties.AttachFace;
+import net.minecraft.world.level.block.state.properties.RailShape;
 import net.minecraft.world.level.block.ComparatorBlock;
 import net.minecraft.world.level.block.FarmBlock;
 import net.minecraft.world.level.block.RedstoneWallTorchBlock;
@@ -92,7 +96,7 @@ public final class Blueprint {
                     for (Block b : alts) if (have.is(b)) return true;
                     return false;
                 default:
-                    return have.is(rotated.getBlock()) && sameOrientation(rotated, have);
+                    return (have.is(rotated.getBlock()) || alts.contains(have.getBlock())) && sameOrientation(rotated, have);
             }
         }
 
@@ -124,7 +128,8 @@ public final class Blueprint {
     public static boolean sameOrientation(BlockState want, BlockState have) {
         for (Property<?> p : want.getProperties()) {
             String n = p.getName();
-            boolean orient = ORIENTATION.contains(n) || (n.equals("type") && want.getBlock() instanceof SlabBlock);
+            boolean orient = ORIENTATION.contains(n) || (n.equals("type") && want.getBlock() instanceof SlabBlock)
+                    || (n.equals("shape") && want.getBlock() instanceof BaseRailBlock);
             if (!orient || !have.hasProperty(p)) continue;
             if (!Objects.equals(want.getValue(p), have.getValue(p))) return false;
         }
@@ -143,6 +148,25 @@ public final class Blueprint {
 
     public static Spec state(BlockState s, String note) {
         return new Spec(s, Match.STATE, note, Set.of());
+    }
+
+    /** Состояние с поворотом, но блок может быть любым из альтернатив (кнопки из разного дерева). */
+    public static Spec state(BlockState s, String note, Block... alts) {
+        return new Spec(s, Match.STATE, note, Set.copyOf(Arrays.asList(alts)));
+    }
+
+    /** Рельсы вдоль оси (EAST_WEST / NORTH_SOUTH). */
+    public static Spec rail(Block b, Direction along, String note) {
+        RailShape shape = along.getAxis() == Direction.Axis.X ? RailShape.EAST_WEST : RailShape.NORTH_SOUTH;
+        BlockState s = b.defaultBlockState().setValue(((BaseRailBlock) b).getShapeProperty(), shape);
+        return state(s, note);
+    }
+
+    /** Кнопка на стене: out - куда она смотрит (от блока, к которому прикреплена). */
+    public static Spec wallButton(Block b, Direction out, String note, Block... alts) {
+        BlockState s = b.defaultBlockState().setValue(BlockStateProperties.ATTACH_FACE, AttachFace.WALL)
+                .setValue(BlockStateProperties.HORIZONTAL_FACING, out);
+        return state(s, note, alts);
     }
 
     public static Spec facing(Block b, Direction d) {
@@ -196,6 +220,11 @@ public final class Blueprint {
     /** Какой слой ставится на уровень "на землю" (слои ниже уходят под землю). */
     public final int ground;
     public final int sx, sy, sz;
+    /**
+     * Точка чертежа (x, z - угол клетки), которая должна попасть ровно на стык 4 чанков.
+     * Нужно фермам на спавнерах FunTime: лимит мобов считается по чанку, поэтому ферму ставят на пересечение 4 чанков.
+     */
+    public int[] chunkCorner;
     private final String[][] layers;
     private final Map<Character, Spec> legend;
 
@@ -216,6 +245,11 @@ public final class Blueprint {
         }
         this.sz = z;
         this.sx = x;
+    }
+
+    public Blueprint withChunkCorner(int x, int z) {
+        this.chunkCorner = new int[]{x, z};
+        return this;
     }
 
     /** Клетка чертежа или null, если там "любой блок". */
@@ -311,6 +345,17 @@ public final class Blueprint {
             Direction out = s.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
             return new String[]{"Компаратор: сигнал идёт на " + dirName(out) + ", сзади - то, что он читает.", "Ставь, глядя на " + dirName(out) + ". Режим - сравнение (огонёк спереди не горит)."};
         }
+        if (b instanceof BaseRailBlock rb) {
+            RailShape sh = s.getValue(rb.getShapeProperty());
+            String along = sh == RailShape.EAST_WEST ? "запад-восток (X)" : sh == RailShape.NORTH_SOUTH ? "север-юг (Z)" : "по склону";
+            String[] base = {"Рельсы вдоль " + along + ".", "Ставь, глядя вдоль линии. Следующий рельс сам состыкуется."};
+            return spec.note != null ? new String[]{base[0], base[1], spec.note} : base;
+        }
+        if (b instanceof ButtonBlock) {
+            Direction f = s.getValue(BlockStateProperties.HORIZONTAL_FACING);
+            String[] base = {"Кнопка на грани блока со стороны " + dirName(f) + "."};
+            return spec.note != null ? new String[]{base[0], spec.note} : base;
+        }
         if (b instanceof FarmBlock) return new String[]{"Положи землю и вскопай её мотыгой (грядка)."};
         if (b instanceof StemBlock || b instanceof AttachedStemBlock) return new String[]{"Посади семена тыквы или арбуза на грядку."};
         if (b instanceof SugarCaneBlock) return new String[]{"Тростник сажай на песок/землю рядом с водой."};
@@ -325,7 +370,8 @@ public final class Blueprint {
         if (spec.match == Match.WATER || spec.match == Match.LAVA) return 3;
         Block b = s.getBlock();
         if (b instanceof SugarCaneBlock || b instanceof CropBlock || b instanceof VegetationBlock) return 4;
-        if (b instanceof RedStoneWireBlock || b instanceof BaseTorchBlock || b instanceof DiodeBlock || b instanceof WallSignBlock || b instanceof ButtonBlock) return 2;
+        if (b instanceof RedStoneWireBlock || b instanceof BaseTorchBlock || b instanceof DiodeBlock || b instanceof WallSignBlock || b instanceof ButtonBlock
+                || b instanceof LeverBlock || b instanceof BaseRailBlock) return 2;
         if (b instanceof HopperBlock || b instanceof ObserverBlock || b instanceof PistonBaseBlock || b instanceof DispenserBlock) return 1;
         return 0;
     }

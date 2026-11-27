@@ -88,9 +88,14 @@ public class LogoutSpots extends Module {
 
     @Override
     public void onWorld(WorldRenderContext ctx, float pt, Minecraft mc) {
+        double t = System.currentTimeMillis() / 1000.0;
         for (Spot s : spots.values()) {
-            R3D.boxFilled(s.box, 0x30FF5050);
+            int a = (int) (40 + 20 * Math.sin(t * 3));
+            R3D.boxFilled(s.box, Draw.withAlpha(0xFF5050, a));
             R3D.boxOutline(s.box, 0xE0FF5050, 2f);
+            // луч вверх - видно издалека
+            R3D.line(s.pos.x, s.box.maxY, s.pos.z, s.pos.x, s.box.maxY + 24, s.pos.z, 0x80FF5050, 1.5f);
+            R3D.circle(s.pos.x, s.box.minY + 0.02, s.pos.z, 0.6, 32, 0xA0FF5050, 2f);
         }
     }
 
@@ -102,10 +107,7 @@ public class LogoutSpots extends Module {
             long min = (System.currentTimeMillis() - s.time) / 60000;
             int dist = (int) mc.player.position().distanceTo(s.pos);
             String text = s.name + " вышел " + (min == 0 ? "только что" : min + " мин назад") + " · " + dist + "м";
-            int w = Draw.width(text) + 8;
-            int x = (int) o[0] - w / 2, y = (int) o[1] - 6;
-            Draw.panel(g, x, y, x + w, y + 12, Draw.bg());
-            Draw.textCentered(g, text, (int) o[0], y + 2, 0xFFFF7070);
+            Draw.pill(g, text, (int) o[0], (int) o[1] - 6, 0xFFFF7070);
         }
     }
 }

@@ -57,13 +57,16 @@ public class Breadcrumbs extends Module {
     public void onWorld(WorldRenderContext ctx, float pt, Minecraft mc) {
         int n = points.size();
         if (n < 2) return;
+        Vec3 cam = mc.gameRenderer.getMainCamera().position();
+        double maxD = 128 * 128;
         Vec3 prev = null;
         int i = 0;
         for (Vec3 p : points) {
-            if (prev != null) {
+            // далёкие отрезки не рисуем - линия на 3000 точек иначе съедает кадры
+            if (prev != null && p.distanceToSqr(cam) < maxD) {
                 float f = (float) i / n;
                 int c = color.argb(f * 2);
-                R3D.line(prev, p, Draw.withAlpha(c, (int) (40 + 200 * f)), 2f);
+                R3D.line(prev, p, Draw.withAlpha(c, (int) (40 + 200 * f)), f > 0.97f ? 3f : 2f);
             }
             prev = p;
             i++;

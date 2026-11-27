@@ -93,9 +93,14 @@ public class SpawnHighlight extends Module {
 
     @Override
     public void onWorld(WorldRenderContext ctx, float pt, Minecraft mc) {
+        net.minecraft.world.phys.Vec3 cam = mc.gameRenderer.getMainCamera().position();
+        double r = radius.get() + 2;
         for (Spot s : spots) {
             double x = s.pos.getX(), y = s.pos.getY() + 0.02, z = s.pos.getZ();
-            int col = s.always ? 0xD0FF3030 : 0xB0FFD030;
+            // ближние крестики ярче, дальние бледнее - не рябит в глазах
+            double d = Math.sqrt(cam.distanceToSqr(x + 0.5, y, z + 0.5));
+            int alpha = (int) Math.max(60, 220 - d / r * 160);
+            int col = ru.visual.client.util.Draw.withAlpha(s.always ? 0xFF3030 : 0xFFD030, alpha);
             R3D.line(x + 0.2, y, z + 0.2, x + 0.8, y, z + 0.8, col, 1.6f);
             R3D.line(x + 0.8, y, z + 0.2, x + 0.2, y, z + 0.8, col, 1.6f);
         }

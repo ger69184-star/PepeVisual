@@ -123,6 +123,12 @@ public class TargetEsp extends Module implements Config.DefaultOn {
         if (style.is("Круг 3D")) {
             double radius = w * 0.75 + 0.12;
             double phase = time * 1.8;
+            int segs = 48;
+            // цвета сегментов считаем один раз на кадр, а не для каждого из 9 кругов
+            int[] cols = new int[segs + 1];
+            for (int i = 1; i <= segs; i++) cols[i] = baseColor(t, (double) i / segs) & 0xFFFFFF;
+            // мягкое кольцо под ногами - видно, где цель стоит, даже в толпе
+            R3D.circle(pos.x, pos.y + 0.02, pos.z, radius, 40, Draw.withAlpha(cols[1], (int) (110 * a)), 2f);
             // основной круг + шлейф из 8 бледнеющих кругов
             for (int k = 0; k < 9; k++) {
                 double p = phase - k * 0.07;
@@ -130,12 +136,11 @@ public class TargetEsp extends Module implements Config.DefaultOn {
                 int alpha = (int) ((k == 0 ? 255 : 150 - k * 15) * a);
                 if (alpha <= 4) continue;
                 float width = k == 0 ? 3.0f : 2.0f;
-                int segs = 48;
                 double px = pos.x + radius, pz = pos.z;
                 for (int i = 1; i <= segs; i++) {
                     double ang = Math.PI * 2 * i / segs;
                     double nx = pos.x + Math.cos(ang) * radius, nz = pos.z + Math.sin(ang) * radius;
-                    int c = Draw.withAlpha(baseColor(t, (double) i / segs) & 0xFFFFFF, alpha);
+                    int c = Draw.withAlpha(cols[i], alpha);
                     R3D.line(px, y, pz, nx, y, nz, c, width);
                     px = nx;
                     pz = nz;
@@ -144,6 +149,7 @@ public class TargetEsp extends Module implements Config.DefaultOn {
         } else if (style.is("Призраки")) {
             double radius = w * 0.8 + 0.25;
             for (int g = 0; g < 3; g++) {
+                int gc = baseColor(t, g / 3.0) & 0xFFFFFF;
                 for (int k = 0; k < 14; k++) {
                     double ang = time * 2.6 + g * (Math.PI * 2 / 3) - k * 0.09;
                     double y = pos.y + h * 0.5 + Math.sin(time * 1.7 + g * 2.1 - k * 0.09) * h * 0.38;
@@ -151,7 +157,7 @@ public class TargetEsp extends Module implements Config.DefaultOn {
                     double s = 0.11 * (1.0 - k / 16.0);
                     int alpha = (int) ((200 - k * 13) * a);
                     if (alpha <= 4) continue;
-                    int c = Draw.withAlpha(baseColor(t, g / 3.0) & 0xFFFFFF, alpha);
+                    int c = Draw.withAlpha(gc, alpha);
                     R3D.boxFilled(new AABB(x - s, y - s, z - s, x + s, y + s, z + s), c);
                 }
             }
