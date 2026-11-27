@@ -101,7 +101,7 @@ public class ClickGuiScreen extends Screen {
 
     private void click() {
         if (Theme.clickSound() && this.minecraft != null) {
-            this.minecraft.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0f, 0.35f));
+            this.minecraft.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK.value(), 1.0f, 0.35f));
         }
     }
 
