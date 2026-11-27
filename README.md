@@ -3,6 +3,8 @@
 Визуальный клиент без PvP-функций. Весь код написан с нуля (аналоги функций FlyVisual и Pipizduci, не копия).
 Лягушонок в `assets/pepevisual/textures/gui/pepe.png` нарисован специально для проекта, его можно заменить своей картинкой 128x128.
 
+**Полный список всех функций и настроек: [FEATURES.md](FEATURES.md).**
+
 ## Как собрать
 1. JDK 21 (или IntelliJ IDEA). Gradle Wrapper 9.2.0 уже в репозитории.
 2. Сборка: `./gradlew build` (Windows: `gradlew.bat build`)
