@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
 import net.minecraft.client.DeltaTracker;
@@ -85,7 +86,7 @@ public class ChestSorter extends Module {
     @Override
     public String info() {
         int n = ContainerMemory.all().size();
-        return n > 0 ? n + " в памяти" : null;
+        return n > 0 ? n + Lang.t(" в памяти") : null;
     }
 
     // ---------- кнопки ----------
@@ -100,12 +101,12 @@ public class ChestSorter extends Module {
         int y = acc.pepevisual$topPos() + 4;
         List<net.minecraft.client.gui.components.AbstractWidget> list = Screens.getButtons(screen);
         if (ContainerMemory.isStorageMenu(menu)) {
-            list.add(btn("Сортировать", "Сложить одинаковые стопки и упорядочить содержимое.", x, y, b -> m.sortContainer(mc)));
-            list.add(btn("Сложить похожие", "Переложить сюда из инвентаря всё, что в этом хранилище уже лежит.", x, y + 22, b -> m.quickStack(mc)));
-            list.add(btn("Забрать всё", "Переложить всё содержимое в инвентарь.", x, y + 44, b -> m.takeAll(mc)));
-            list.add(btn("Сорт. инвентарь", "Упорядочить твой инвентарь (без хотбара).", x, y + 66, b -> m.sortPlayer(mc)));
+            list.add(btn(Lang.t("Сортировать"), Lang.t("Сложить одинаковые стопки и упорядочить содержимое."), x, y, b -> m.sortContainer(mc)));
+            list.add(btn(Lang.t("Сложить похожие"), Lang.t("Переложить сюда из инвентаря всё, что в этом хранилище уже лежит."), x, y + 22, b -> m.quickStack(mc)));
+            list.add(btn(Lang.t("Забрать всё"), Lang.t("Переложить всё содержимое в инвентарь."), x, y + 44, b -> m.takeAll(mc)));
+            list.add(btn(Lang.t("Сорт. инвентарь"), Lang.t("Упорядочить твой инвентарь (без хотбара)."), x, y + 66, b -> m.sortPlayer(mc)));
         } else if (screen instanceof InventoryScreen && menu instanceof InventoryMenu) {
-            list.add(btn("Сортировать", "Упорядочить инвентарь (без хотбара).", x, y, b -> m.sortPlayer(mc)));
+            list.add(btn(Lang.t("Сортировать"), Lang.t("Упорядочить инвентарь (без хотбара)."), x, y, b -> m.sortPlayer(mc)));
         }
     }
 
@@ -122,7 +123,7 @@ public class ChestSorter extends Module {
         List<Integer> slots = new ArrayList<>();
         for (int i = 0; i < n; i++) slots.add(i);
         int clicks = planSort(m, slots);
-        setStatus(clicks == 0 ? "Уже отсортировано" : "Сортирую...");
+        setStatus(clicks == 0 ? Lang.t("Уже отсортировано") : Lang.t("Сортирую..."));
     }
 
     private void sortPlayer(Minecraft mc) {
@@ -135,7 +136,7 @@ public class ChestSorter extends Module {
             for (int i = n; i < n + 27; i++) slots.add(i);
         } else return;
         int clicks = planSort(m, slots);
-        setStatus(clicks == 0 ? "Уже отсортировано" : "Сортирую инвентарь...");
+        setStatus(clicks == 0 ? Lang.t("Уже отсортировано") : Lang.t("Сортирую инвентарь..."));
     }
 
     private void quickStack(Minecraft mc) {
@@ -157,7 +158,7 @@ public class ChestSorter extends Module {
             }
         }
         moved += count;
-        setStatus(count == 0 ? "Нечего раскладывать" : "Раскладываю: " + count + " стопок");
+        setStatus(count == 0 ? Lang.t("Нечего раскладывать") : Lang.t("Раскладываю: ") + count + Lang.t(" стопок"));
     }
 
     private void takeAll(Minecraft mc) {
@@ -190,7 +191,7 @@ public class ChestSorter extends Module {
     /** Планирует клики для сортировки выбранных слотов меню. Возвращает число кликов. */
     private int planSort(AbstractContainerMenu m, List<Integer> slots) {
         if (!m.getCarried().isEmpty()) {
-            setStatus("Сначала положи предмет из курсора");
+            setStatus(Lang.t("Сначала положи предмет из курсора"));
             return 0;
         }
         int k = slots.size();

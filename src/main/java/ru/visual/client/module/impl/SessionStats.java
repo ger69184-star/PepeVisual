@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -106,20 +107,20 @@ public class SessionStats extends HudModule {
     public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
         if (mc.options.hideGui) return;
         String[][] rows = {
-                {"Время", time(System.currentTimeMillis() - start)},
-                {"Блоков", String.valueOf(blocks)},
-                {"Убийств", String.valueOf(kills)},
-                {"Смертей", String.valueOf(deaths)},
-                {"Пройдено", walked >= 1000 ? String.format("%.1f км", walked / 1000) : (int) walked + " м"},
+                {Lang.t("Время"), time(System.currentTimeMillis() - start)},
+                {Lang.t("Блоков"), String.valueOf(blocks)},
+                {Lang.t("Убийств"), String.valueOf(kills)},
+                {Lang.t("Смертей"), String.valueOf(deaths)},
+                {Lang.t("Пройдено"), walked >= 1000 ? String.format(Lang.t("%.1f км"), walked / 1000) : (int) walked + Lang.t(" м")},
         };
         int w = 0;
         for (String[] r : rows) w = Math.max(w, Draw.width(r[0]) + Draw.width(r[1]) + 16);
-        w = Math.max(w, Draw.width("Сессия") + 12);
+        w = Math.max(w, Draw.width(Lang.t("Сессия")) + 12);
         int sh = mc.getWindow().getGuiScaledHeight();
         int x = 4 + ox(), y = left(sh / 2 + 40);
         int h = 14 + rows.length * 10 + 3;
         Draw.panel(g, x, y, x + w, y + h, Draw.bg());
-        Draw.text(g, "Сессия", x + 6, y + 3, Draw.accent());
+        Draw.text(g, Lang.t("Сессия"), x + 6, y + 3, Draw.accent());
         for (int i = 0; i < rows.length; i++) {
             int ry = y + 14 + i * 10;
             Draw.text(g, rows[i][0], x + 6, ry, Draw.GRAY);

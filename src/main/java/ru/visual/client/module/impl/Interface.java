@@ -23,7 +23,7 @@ public class Interface extends Module implements Config.DefaultOn {
     public final BoolSetting textShadow = add(new BoolSetting("Тень текста в HUD", "Тень под текстом HUD - лучше читается на светлом фоне.", true));
 
     public Interface() {
-        super("Interface", "Кастомизация интерфейса клиента: цвет темы, шрифт, скругление, тени, прозрачность и радужные элементы.", Category.HUD);
+        super("Interface", "Кастомизация интерфейса клиента: цвет темы, шрифт, скругление, тени, прозрачность и радужные элементы.", Category.MENU);
         Theme.owner = this;
         Theme.accent = accent;
         Theme.opacity = opacity;

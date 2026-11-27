@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -56,14 +57,14 @@ public class Explosions extends Module implements Config.DefaultOn {
             int col = Draw.WHITE;
             if (tnt.get() && e instanceof PrimedTnt t) {
                 int fuse = t.getFuse();
-                text = String.format("%.1f с", Math.max(0, fuse - pt) / 20f);
+                text = String.format(Lang.t("%.1f с"), Math.max(0, fuse - pt) / 20f);
                 col = fuseColor(Math.min(1f, fuse / 80f));
             } else if (creepers.get() && e instanceof Creeper c) {
                 float s = c.getSwelling(pt);
                 if (s <= 0.01f) continue;
                 // getSwelling = swell / (maxSwell - 2), взрыв при swell >= maxSwell (30 тиков = 1.5 с)
                 float left = (30f - s * 28f) / 20f;
-                text = String.format("Крипер %.1f с", Math.max(0f, left));
+                text = String.format(Lang.t("Крипер %.1f с"), Math.max(0f, left));
                 col = fuseColor(1f - s);
             }
             if (text == null) continue;

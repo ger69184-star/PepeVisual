@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.KeyMapping;
@@ -336,7 +337,7 @@ public class AutoBrew extends Module {
                 current = standUnderCrosshair(mc); // открыл сам - тоже запоминаем
                 botOpened = false;
             }
-            status = current != null ? "работаю в зельеварке №" + current.number : "работаю в зельеварке";
+            status = current != null ? Lang.t("работаю в зельеварке №") + current.number : Lang.t("работаю в зельеварке");
             handle(mc, m);
             return;
         }
@@ -370,7 +371,7 @@ public class AutoBrew extends Module {
                 lastScan = -100;
                 goingHome = false;
             }
-            status = "пауза: ты управляешь";
+            status = Lang.t("пауза: ты управляешь");
             return;
         }
 
@@ -383,7 +384,7 @@ public class AutoBrew extends Module {
             target = pickStand(mc);
             repaths = 0;
             if (target == null) {
-                status = stands.isEmpty() ? "рядом нет зельеварок" : idleStatus(mc);
+                status = stands.isEmpty() ? Lang.t("рядом нет зельеварок") : idleStatus(mc);
                 idle(mc);
                 return;
             }
@@ -411,15 +412,15 @@ public class AutoBrew extends Module {
             target = null;
             return;
         }
-        status = "иду к зельеварке №" + target.number;
+        status = Lang.t("иду к зельеварке №") + target.number;
         walkTo(mc, target.pos, true);
     }
 
     private String idleStatus(Minecraft mc) {
         long soonest = Long.MAX_VALUE;
         for (Stand s : stands.values()) if (s.kind == Kind.BREWING) soonest = Math.min(soonest, s.readyAt);
-        if (soonest != Long.MAX_VALUE) return "жду: ближайшая готова через " + Math.max(0, (soonest - tick) / 20) + " с";
-        return "нечего делать: не хватает предметов";
+        if (soonest != Long.MAX_VALUE) return Lang.t("жду: ближайшая готова через ") + Math.max(0, (soonest - tick) / 20) + Lang.t(" с");
+        return Lang.t("нечего делать: не хватает предметов");
     }
 
     private Stand standUnderCrosshair(Minecraft mc) {
@@ -443,7 +444,7 @@ public class AutoBrew extends Module {
             return;
         }
         goingHome = true;
-        status = status + ", иду на место";
+        status = status + Lang.t(", иду на место");
         walkTo(mc, home, false);
     }
 
@@ -459,19 +460,19 @@ public class AutoBrew extends Module {
                     }, 8000)
                     : nav.findPath(mc.level, start, dest, pos -> pos.distSqr(dest) <= 2, 8000);
             if (!ok) {
-                giveUp(mc, "путь не найден");
+                giveUp(mc, Lang.t("путь не найден"));
                 return;
             }
         }
         boolean arrived = nav.tick(mc, mc.player);
         if (nav.failed) {
             nav.clear();
-            if (++repaths > 3) giveUp(mc, "застрял");
+            if (++repaths > 3) giveUp(mc, Lang.t("застрял"));
             return;
         }
         if (arrived) {
             nav.clear();
-            if (stand && target != null && !inReach(mc, target.pos) && ++repaths > 3) giveUp(mc, "не дотянуться");
+            if (stand && target != null && !inReach(mc, target.pos) && ++repaths > 3) giveUp(mc, Lang.t("не дотянуться"));
             if (!stand) goingHome = false;
         }
     }
@@ -482,7 +483,7 @@ public class AutoBrew extends Module {
         if (target != null) {
             target.kind = Kind.UNREACHABLE;
             target.retryAt = tick + 600;
-            status = "зельеварка №" + target.number + ": " + why;
+            status = Lang.t("зельеварка №") + target.number + ": " + why;
             target = null;
         } else if (goingHome) {
             goingHome = false;
@@ -694,13 +695,13 @@ public class AutoBrew extends Module {
     }
 
     private String standLine(Stand s) {
-        String t = s.kind.title;
+        String t = Lang.t(s.kind.title);
         if (s.kind == Kind.BREWING) {
             long left = Math.max(0, s.readyAt - tick) / 20;
-            t = left > 0 ? "варится, " + left + " с" : "должна быть готова";
+            t = left > 0 ? Lang.t("варится, ") + left + Lang.t(" с") : Lang.t("должна быть готова");
         } else if (s.kind == Kind.NEED_INGREDIENT && s.contents != null) {
             Step st = stepFor(s.contents);
-            if (st != null) t = "нужен " + shortName(st.ingredient);
+            if (st != null) t = Lang.t("нужен ") + shortName(st.ingredient);
         }
         return t;
     }
@@ -745,13 +746,13 @@ public class AutoBrew extends Module {
         cols.add(Draw.WHITE);
         // чего не хватает - одной строкой
         StringBuilder miss = new StringBuilder();
-        if (!hasAnyInput(mc)) miss.append(chain.isEmpty() ? "" : "бутылки (" + potionName(chain.get(0).in) + ")");
-        if (countInv(mc, Items.BLAZE_POWDER) == 0) miss.append(miss.length() > 0 ? ", " : "").append("огненный порошок");
+        if (!hasAnyInput(mc)) miss.append(chain.isEmpty() ? "" : Lang.t("бутылки (") + potionName(chain.get(0).in) + ")");
+        if (countInv(mc, Items.BLAZE_POWDER) == 0) miss.append(miss.length() > 0 ? ", " : "").append(Lang.t("огненный порошок"));
         for (Step st : chain) {
             if (countInv(mc, st.ingredient) == 0) miss.append(miss.length() > 0 ? ", " : "").append(shortName(st.ingredient));
         }
         if (miss.length() > 0) {
-            lines.add("Нет: " + miss);
+            lines.add(Lang.t("Нет: ") + miss);
             cols.add(0xFFFF8A6A);
         }
         List<Stand> list = new ArrayList<>(stands.values());
@@ -759,14 +760,14 @@ public class AutoBrew extends Module {
         int shown = 0;
         for (Stand s : list) {
             if (shown++ >= 8) {
-                lines.add("... ещё " + (list.size() - 8));
+                lines.add(Lang.t("... ещё ") + (list.size() - 8));
                 cols.add(Draw.GRAY);
                 break;
             }
             lines.add("№" + s.number + "  " + standLine(s));
             cols.add(s.kind.color);
         }
-        lines.add("Готово в инвентаре: " + countPotions(mc, finalState));
+        lines.add(Lang.t("Готово в инвентаре: ") + countPotions(mc, finalState));
         cols.add(Draw.GRAY);
         int w = 0;
         for (String l : lines) w = Math.max(w, Draw.width(l));

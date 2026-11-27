@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
@@ -30,7 +31,7 @@ public class AutoWindCharge extends Module {
 
     @Override
     public String info() {
-        return mode.is("При прыжке") ? "прыжок" : null;
+        return mode.is("При прыжке") ? Lang.t("прыжок") : null;
     }
 
     @Override
@@ -65,7 +66,7 @@ public class AutoWindCharge extends Module {
                 }
             }
             if (slot < 0) {
-                if (message.get()) p.displayClientMessage(Component.literal("[PepeVisual] Нет ветряного заряда в хотбаре"), true);
+                if (message.get()) p.displayClientMessage(Component.literal(Lang.t("[PepeVisual] Нет ветряного заряда в хотбаре")), true);
                 last = tick;
                 return;
             }

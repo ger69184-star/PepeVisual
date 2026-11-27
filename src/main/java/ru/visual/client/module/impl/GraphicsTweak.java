@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.OptionInstance;
@@ -115,7 +116,7 @@ public class GraphicsTweak<T> extends Module {
 
     @Override
     public String info() {
-        return userOverride ? "вручную" : null;
+        return userOverride ? Lang.t("вручную") : null;
     }
 
     // ---------------------------------------------------------------- набор кнопок
@@ -157,6 +158,10 @@ public class GraphicsTweak<T> extends Module {
                 Options::weatherRadius, () -> 3));
         out.add(new GraphicsTweak<>("No Chunk Fade", "Чанки появляются сразу, без плавного проявления.", false, false,
                 Options::chunkSectionFadeInTime, () -> 0.0));
+        out.add(new GraphicsTweak<>("Fast Transparency", "Выключает \"Улучшенную прозрачность\" (бывшая Fabulous-графика): вода, стекло и частицы за ними рисуются проще - много FPS на слабых видеокартах.", true, true,
+                Options::improvedTransparency, () -> false));
+        out.add(new GraphicsTweak<>("No VSync", "Выключает вертикальную синхронизацию: FPS не упирается в частоту монитора, меньше задержка мыши (возможны разрывы картинки).", false, false,
+                Options::enableVsync, () -> false));
         out.add(new GraphicsTweak<>("No Menu Blur", "Без размытия фона в меню и инвентаре (на слабых видеокартах размытие тормозит).", false, false,
                 Options::menuBackgroundBlurriness, () -> 0));
         return out;

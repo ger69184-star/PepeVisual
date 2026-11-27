@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -34,9 +35,9 @@ public class NearbyPlayers extends HudModule implements Config.DefaultOn {
         list.sort(Comparator.comparingDouble(p -> mc.player.distanceToSqr(p)));
         int n = Math.min(list.size(), max.asInt());
 
-        int nameW = 0, hpW = Draw.width("00"), distW = Draw.width("000 м");
+        int nameW = 0, hpW = Draw.width("00"), distW = Draw.width(Lang.t("000 м"));
         for (int i = 0; i < n; i++) nameW = Math.max(nameW, Draw.width(Draw.trim(list.get(i).getName().getString(), 90)));
-        String head = "Рядом" + (list.size() > n ? "  " + n + "/" + list.size() : "  " + list.size());
+        String head = Lang.t("Рядом") + (list.size() > n ? "  " + n + "/" + list.size() : "  " + list.size());
         int inner = Math.max(Draw.width(head), 8 + nameW + 8 + hpW + 8 + distW);
         int pw = inner + 12;
         int right = mc.getWindow().getGuiScaledWidth() - 4 + ox();
@@ -55,7 +56,7 @@ public class NearbyPlayers extends HudModule implements Config.DefaultOn {
             Draw.circle(g, x + 5, yy + 2, 5, hc);
             Draw.text(g, Draw.trim(p.getName().getString(), 90), x + 14, yy, target ? 0xFFFF8080 : Draw.WHITE);
             String hs = String.valueOf(Math.round(hp));
-            String ds = (int) Math.sqrt(mc.player.distanceToSqr(p)) + " м";
+            String ds = (int) Math.sqrt(mc.player.distanceToSqr(p)) + Lang.t(" м");
             Draw.textRight(g, ds, right - 6, yy, Draw.GRAY);
             Draw.textRight(g, hs, right - 6 - distW - 8 + hpW, yy, hc);
             yy += 11;

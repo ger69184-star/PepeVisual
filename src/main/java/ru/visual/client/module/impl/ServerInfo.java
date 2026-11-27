@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -65,16 +66,16 @@ public class ServerInfo extends HudModule {
     public void onHud(GuiGraphics g, DeltaTracker delta, Minecraft mc) {
         List<String> lines = new ArrayList<>();
         ServerData sd = mc.getCurrentServer();
-        if (address.get()) lines.add(sd != null ? "Сервер: " + sd.ip : "Одиночная игра");
+        if (address.get()) lines.add(sd != null ? Lang.t("Сервер: ") + sd.ip : Lang.t("Одиночная игра"));
         if (showTps.get()) {
             String col = tps >= 18 ? "§a" : tps >= 14 ? "§e" : "§c";
             lines.add(String.format(Locale.ROOT, "TPS: %s%.1f", col, tps));
         }
-        if (showPing.get() && sd != null) lines.add("Пинг: " + PlayerUtil.ping(mc) + " мс");
-        if (online.get() && mc.getConnection() != null) lines.add("Онлайн: " + mc.getConnection().getOnlinePlayers().size());
+        if (showPing.get() && sd != null) lines.add(Lang.t("Пинг: ") + PlayerUtil.ping(mc) + Lang.t(" мс"));
+        if (online.get() && mc.getConnection() != null) lines.add(Lang.t("Онлайн: ") + mc.getConnection().getOnlinePlayers().size());
         if (session.get()) {
             long s = (System.currentTimeMillis() - joinTime) / 1000;
-            lines.add(String.format(Locale.ROOT, "Сессия: %d:%02d:%02d", s / 3600, (s / 60) % 60, s % 60));
+            lines.add(String.format(Locale.ROOT, Lang.t("Сессия: %d:%02d:%02d"), s / 3600, (s / 60) % 60, s % 60));
         }
         if (lines.isEmpty()) return;
         // Одна строка в левом нижнем углу (там свободно: чат выше, хотбар по центру)

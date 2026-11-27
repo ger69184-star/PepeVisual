@@ -10,6 +10,12 @@ public class ColorSetting extends Setting<Integer> {
 
     public ColorSetting(String name, String description, int rgb) {
         super(name, description, rgb);
+        setRgb(rgb);
+    }
+
+    /** Задать цвет в RGB (без радуги). */
+    public void setRgb(int rgb) {
+        rainbow = false;
         // Свой перевод RGB -> HSV: java.awt.Color не используем (AWT вместе с GLFW может ломать запуск на macOS)
         float r = ((rgb >> 16) & 255) / 255f, g = ((rgb >> 8) & 255) / 255f, b = (rgb & 255) / 255f;
         float max = Math.max(r, Math.max(g, b)), min = Math.min(r, Math.min(g, b));

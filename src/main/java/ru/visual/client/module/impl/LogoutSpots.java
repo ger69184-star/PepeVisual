@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -106,7 +107,7 @@ public class LogoutSpots extends Module {
             if (!Projection.project(s.pos.x, s.box.maxY + 0.4, s.pos.z, o)) continue;
             long min = (System.currentTimeMillis() - s.time) / 60000;
             int dist = (int) mc.player.position().distanceTo(s.pos);
-            String text = s.name + " вышел " + (min == 0 ? "только что" : min + " мин назад") + " · " + dist + "м";
+            String text = s.name + Lang.t(" вышел ") + (min == 0 ? Lang.t("только что") : min + Lang.t(" мин назад")) + " · " + dist + Lang.t("м");
             Draw.pill(g, text, (int) o[0], (int) o[1] - 6, 0xFFFF7070);
         }
     }

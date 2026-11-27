@@ -24,7 +24,7 @@ public class ModuleList extends HudModule implements Config.DefaultOn {
         List<Module> on = new ArrayList<>();
         for (Module m : ModuleManager.MODULES) {
             // HUD-элементы и кнопки оптимизации в списке только мешают
-            if (m.isEnabled() && m.category != Category.HUD && m.category != Category.OPTIMIZATION) on.add(m);
+            if (m.isEnabled() && m.category != Category.HUD && m.category != Category.OPTIMIZATION && m.category != Category.MENU) on.add(m);
         }
         on.sort(Comparator.comparingInt((Module m) -> -Draw.width(label(m))));
         int w = mc.getWindow().getGuiScaledWidth() + ox();

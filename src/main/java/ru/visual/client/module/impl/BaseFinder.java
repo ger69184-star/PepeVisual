@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -178,7 +179,7 @@ public class BaseFinder extends Module {
             if (notify.get()) {
                 long key = BlockPos.asLong((int) center.x >> 4, 0, (int) center.z >> 4);
                 if (notified.add(key)) {
-                    mc.player.displayClientMessage(Component.literal("[PepeVisual] Возможный приват (" + c.score + " объектов): "
+                    mc.player.displayClientMessage(Component.literal(Lang.t("[PepeVisual] Возможный приват (") + c.score + Lang.t(" объектов): ")
                             + (int) center.x + " " + (int) center.y + " " + (int) center.z), false);
                 }
             }
@@ -208,7 +209,7 @@ public class BaseFinder extends Module {
                 Draw.corners(g, (int) r[0], (int) r[1], (int) r[2], (int) r[3], col);
             }
             if (Projection.project(c.center.x, c.center.y, c.center.z, o)) {
-                String s = "Приват? " + c.score + " объектов, " + (int) dist + "м";
+                String s = Lang.t("Приват? ") + c.score + Lang.t(" объектов, ") + (int) dist + Lang.t("м");
                 Draw.pill(g, s, (int) o[0], (int) o[1] - 12, col);
             }
         }
@@ -218,8 +219,8 @@ public class BaseFinder extends Module {
             int y = 66; // под списком DungeonFinder
             for (int i = 0; i < Math.min(3, near.size()); i++) {
                 Cluster c = near.get(i);
-                String s = "Приват: " + (int) c.center.x + " " + (int) c.center.y + " " + (int) c.center.z
-                        + " (" + (int) c.center.distanceTo(me) + "м, " + c.score + ")";
+                String s = Lang.t("Приват: ") + (int) c.center.x + " " + (int) c.center.y + " " + (int) c.center.z
+                        + " (" + (int) c.center.distanceTo(me) + Lang.t("м, ") + c.score + ")";
                 Draw.pill(g, s, w / 2, y + 2, 0xFFFF7A30);
                 y += 14;
             }

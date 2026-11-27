@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.Vec3;
@@ -41,19 +42,19 @@ public class DeathInfo extends Module implements Config.DefaultOn {
     private void onDeath(Minecraft mc) {
         Vec3 p = mc.player.position();
         String dim = switch (mc.level.dimension().identifier().getPath()) {
-            case "overworld" -> "Верхний мир";
-            case "the_nether" -> "Незер";
-            case "the_end" -> "Энд";
+            case "overworld" -> Lang.t("Верхний мир");
+            case "the_nether" -> Lang.t("Незер");
+            case "the_end" -> Lang.t("Энд");
             default -> mc.level.dimension().identifier().toString();
         };
         if (chat.get()) {
-            String msg = String.format(Locale.ROOT, "§c[PV] Ты умер: §f%d %d %d §7(%s)", (int) Math.floor(p.x), (int) Math.floor(p.y), (int) Math.floor(p.z), dim);
+            String msg = String.format(Locale.ROOT, Lang.t("§c[PV] Ты умер: §f%d %d %d §7(%s)"), (int) Math.floor(p.x), (int) Math.floor(p.y), (int) Math.floor(p.z), dim);
             if (killer.get()) {
                 var src = mc.player.getLastDamageSource();
-                if (src != null) msg += "§7, причина: §f" + src.getLocalizedDeathMessage(mc.player).getString();
+                if (src != null) msg += Lang.t("§7, причина: §f") + src.getLocalizedDeathMessage(mc.player).getString();
             }
             mc.gui.getChat().addMessage(Component.literal(msg));
         }
-        if (waypoint.get()) Waypoints.put(mc, "Смерть", p, 0xFFFF5555);
+        if (waypoint.get()) Waypoints.put(mc, Lang.t("Смерть"), p, 0xFFFF5555);
     }
 }

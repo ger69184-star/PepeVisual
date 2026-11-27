@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -36,9 +37,9 @@ public class TotemPops extends Module {
         Minecraft mc = Minecraft.getInstance();
         if (p == mc.player && !m.self.get()) return;
         int n = pops.merge(p.getUUID(), 1, Integer::sum);
-        String who = p == mc.player ? "Ты" : p.getName().getString();
+        String who = p == mc.player ? Lang.t("Ты") : p.getName().getString();
         m.say(Component.literal(who).withStyle(ChatFormatting.YELLOW)
-                .append(Component.literal(" потерял тотем ").withStyle(ChatFormatting.GRAY))
+                .append(Component.literal(Lang.t(" потерял тотем ")).withStyle(ChatFormatting.GRAY))
                 .append(Component.literal("(" + n + ")").withStyle(n >= 3 ? ChatFormatting.RED : ChatFormatting.GOLD)));
     }
 
@@ -58,8 +59,8 @@ public class TotemPops extends Module {
             if (!p.isDeadOrDying()) continue;
             Integer n = pops.remove(p.getUUID());
             if (n != null && deaths.get()) {
-                say(Component.literal(p == mc.player ? "Ты" : p.getName().getString()).withStyle(ChatFormatting.YELLOW)
-                        .append(Component.literal(" умер, потратив тотемов: " + n).withStyle(ChatFormatting.GRAY)));
+                say(Component.literal(p == mc.player ? Lang.t("Ты") : p.getName().getString()).withStyle(ChatFormatting.YELLOW)
+                        .append(Component.literal(Lang.t(" умер, потратив тотемов: ") + n).withStyle(ChatFormatting.GRAY)));
             }
         }
     }

@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
@@ -150,7 +151,7 @@ public class Waypoints extends Module implements Config.DefaultOn {
                         current(mc).clear();
                         save();
                     }
-                    c.getSource().sendFeedback(Component.literal("§a[PV] Все метки этого мира удалены."));
+                    c.getSource().sendFeedback(Component.literal(Lang.t("§a[PV] Все метки этого мира удалены.")));
                     return 1;
                 }))
                 .then(ClientCommandManager.literal("add")
@@ -161,14 +162,14 @@ public class Waypoints extends Module implements Config.DefaultOn {
                             Vec3 p = mc.player.position();
                             put(mc, name, new Vec3(Math.floor(p.x) + 0.5, Math.floor(p.y), Math.floor(p.z) + 0.5), 0xFF55FFFF);
                             c.getSource().sendFeedback(Component.literal(String.format(Locale.ROOT,
-                                    "§a[PV] Метка \"%s\" поставлена: %d %d %d", name, (int) Math.floor(p.x), (int) Math.floor(p.y), (int) Math.floor(p.z))));
+                                    Lang.t("§a[PV] Метка \"%s\" поставлена: %d %d %d"), name, (int) Math.floor(p.x), (int) Math.floor(p.y), (int) Math.floor(p.z))));
                             return 1;
                         })))
                 .then(ClientCommandManager.literal("del")
                         .then(ClientCommandManager.argument("name", StringArgumentType.greedyString()).executes(c -> {
                             String name = StringArgumentType.getString(c, "name");
                             boolean ok = remove(Minecraft.getInstance(), name);
-                            c.getSource().sendFeedback(Component.literal(ok ? "§a[PV] Метка \"" + name + "\" удалена." : "§c[PV] Метка \"" + name + "\" не найдена."));
+                            c.getSource().sendFeedback(Component.literal(ok ? Lang.t("§a[PV] Метка \"") + name + Lang.t("\" удалена.") : Lang.t("§c[PV] Метка \"") + name + Lang.t("\" не найдена.")));
                             return ok ? 1 : 0;
                         }))));
     }
@@ -176,10 +177,10 @@ public class Waypoints extends Module implements Config.DefaultOn {
     private static int list(FabricClientCommandSource src) {
         List<Point> list = current(Minecraft.getInstance());
         if (list.isEmpty()) {
-            src.sendFeedback(Component.literal("§7[PV] Меток нет. Добавить: /pvwp add <имя>"));
+            src.sendFeedback(Component.literal(Lang.t("§7[PV] Меток нет. Добавить: /pvwp add <имя>")));
             return 1;
         }
-        src.sendFeedback(Component.literal("§b[PV] Метки (" + list.size() + "):"));
+        src.sendFeedback(Component.literal(Lang.t("§b[PV] Метки (") + list.size() + "):"));
         for (Point p : list) {
             src.sendFeedback(Component.literal(String.format(Locale.ROOT, "§7- §f%s§7: %d %d %d", p.name(), (int) Math.floor(p.x()), (int) Math.floor(p.y()), (int) Math.floor(p.z()))));
         }
@@ -212,7 +213,7 @@ public class Waypoints extends Module implements Config.DefaultOn {
             int x = (int) o[0], y = (int) o[1];
             if (x < -100 || x > w + 100 || y < -100 || y > h + 100) continue;
             String label = p.name();
-            if (distance.get()) label += " §7" + (int) dist + "м";
+            if (distance.get()) label += " §7" + (int) dist + Lang.t("м");
             String sub = coords.get() ? String.format(Locale.ROOT, "%d %d %d", (int) Math.floor(p.x()), (int) Math.floor(p.y()), (int) Math.floor(p.z())) : null;
             int tw = Draw.width(label);
             Draw.rect(g, x - tw / 2 - 3, y - 12, x + tw / 2 + 3, y - 1, 0xA0000000);

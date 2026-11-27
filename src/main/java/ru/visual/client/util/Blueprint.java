@@ -113,10 +113,10 @@ public final class Blueprint {
 
         public String displayName() {
             return switch (match) {
-                case SOLID -> "Любой твёрдый блок";
-                case WATER -> "Вода (ведро)";
-                case LAVA -> "Лава (ведро)";
-                case AIR -> "Пусто (выкопать)";
+                case SOLID -> Lang.t("Любой твёрдый блок");
+                case WATER -> Lang.t("Вода (ведро)");
+                case LAVA -> Lang.t("Лава (ведро)");
+                case AIR -> Lang.t("Пусто (выкопать)");
                 default -> state.getBlock().getName().getString();
             };
         }
@@ -274,12 +274,12 @@ public final class Blueprint {
 
     public static String dirName(Direction d) {
         return switch (d) {
-            case NORTH -> "север (-Z)";
-            case SOUTH -> "юг (+Z)";
-            case EAST -> "восток (+X)";
-            case WEST -> "запад (-X)";
-            case UP -> "вверх";
-            case DOWN -> "вниз";
+            case NORTH -> Lang.t("север (-Z)");
+            case SOUTH -> Lang.t("юг (+Z)");
+            case EAST -> Lang.t("восток (+X)");
+            case WEST -> Lang.t("запад (-X)");
+            case UP -> Lang.t("вверх");
+            case DOWN -> Lang.t("вниз");
         };
     }
 
@@ -298,9 +298,9 @@ public final class Blueprint {
     public static String[] placeHint(Spec spec, BlockState s) {
         String[] h = placeHint0(spec, s);
         if (h == null || spec.note == null || spec.match != Match.STATE) return h;
-        for (String line : h) if (line.equals(spec.note)) return h;
+        for (String line : h) if (line.equals(Lang.t(spec.note))) return h;
         String[] out = Arrays.copyOf(h, h.length + 1);
-        out[h.length] = spec.note;
+        out[h.length] = Lang.t(spec.note);
         return out;
     }
 
@@ -309,57 +309,57 @@ public final class Blueprint {
         Block b = s.getBlock();
         if (b instanceof ObserverBlock) {
             Direction f = s.getValue(BlockStateProperties.FACING);
-            return new String[]{"Глаз смотрит на " + dirName(f) + ", выход (точка) - назад.",
-                    f.getAxis() == Direction.Axis.Y ? "Ставь, глядя " + (f == Direction.DOWN ? "вниз" : "вверх") + "."
-                            : "Ставь, глядя ровно на " + dirName(f) + " (не сильно вниз!)."};
+            return new String[]{Lang.t("Глаз смотрит на ") + dirName(f) + Lang.t(", выход (точка) - назад."),
+                    f.getAxis() == Direction.Axis.Y ? Lang.t("Ставь, глядя ") + (f == Direction.DOWN ? Lang.t("вниз") : Lang.t("вверх")) + "."
+                            : Lang.t("Ставь, глядя ровно на ") + dirName(f) + Lang.t(" (не сильно вниз!).")};
         }
         if (b instanceof PistonBaseBlock) {
             Direction f = s.getValue(BlockStateProperties.FACING);
-            return new String[]{"Толкает на " + dirName(f) + ".", "Ставь, глядя на " + dirName(f.getOpposite()) + " (лицом к поршню спереди)."};
+            return new String[]{Lang.t("Толкает на ") + dirName(f) + ".", Lang.t("Ставь, глядя на ") + dirName(f.getOpposite()) + Lang.t(" (лицом к поршню спереди).")};
         }
         if (b instanceof DispenserBlock) {
             Direction f = s.getValue(BlockStateProperties.FACING);
-            return new String[]{"Выбрасывает на " + dirName(f) + ".", "Ставь, глядя на " + dirName(f.getOpposite()) + "."};
+            return new String[]{Lang.t("Выбрасывает на ") + dirName(f) + ".", Lang.t("Ставь, глядя на ") + dirName(f.getOpposite()) + "."};
         }
         if (b instanceof DiodeBlock && !(b instanceof ComparatorBlock)) {
             Direction out = s.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
-            return new String[]{"Сигнал идёт на " + dirName(out) + ".", "Ставь, глядя на " + dirName(out) + "."};
+            return new String[]{Lang.t("Сигнал идёт на ") + dirName(out) + ".", Lang.t("Ставь, глядя на ") + dirName(out) + "."};
         }
         if (b instanceof HopperBlock) {
             Direction f = s.getValue(BlockStateProperties.FACING_HOPPER);
-            if (f == Direction.DOWN) return new String[]{"Сыплет вниз.", "Ставь сверху на блок/контейнер под ней."};
-            return new String[]{"Сыплет на " + dirName(f) + ".", "Зажми Shift и кликни по боковой грани блока, куда она должна сыпать."};
+            if (f == Direction.DOWN) return new String[]{Lang.t("Сыплет вниз."), Lang.t("Ставь сверху на блок/контейнер под ней.")};
+            return new String[]{Lang.t("Сыплет на ") + dirName(f) + ".", Lang.t("Зажми Shift и кликни по боковой грани блока, куда она должна сыпать.")};
         }
         if (b instanceof WallSignBlock) {
             Direction f = s.getValue(BlockStateProperties.HORIZONTAL_FACING);
-            return new String[]{"Табличка на стене (со стороны " + dirName(f.getOpposite()) + ").", "Кликни по этой стене. Вода через табличку не течёт, а мобы проходят."};
+            return new String[]{Lang.t("Табличка на стене (со стороны ") + dirName(f.getOpposite()) + ").", Lang.t("Кликни по этой стене. Вода через табличку не течёт, а мобы проходят.")};
         }
-        if (b instanceof RedStoneWireBlock) return new String[]{"Редстоун-пыль: ставь сверху на блок."};
+        if (b instanceof RedStoneWireBlock) return new String[]{Lang.t("Редстоун-пыль: ставь сверху на блок.")};
         if (b instanceof RedstoneWallTorchBlock || b instanceof WallTorchBlock) {
             Direction f = s.getValue(BlockStateProperties.HORIZONTAL_FACING);
-            String[] base = {"Факел на стене: кликни по грани блока со стороны " + dirName(f) + "."};
+            String[] base = {Lang.t("Факел на стене: кликни по грани блока со стороны ") + dirName(f) + "."};
             return spec.note != null ? new String[]{base[0], spec.note} : base;
         }
-        if (b instanceof BaseTorchBlock) return new String[]{"Факел ставь сверху на блок."};
+        if (b instanceof BaseTorchBlock) return new String[]{Lang.t("Факел ставь сверху на блок.")};
         if (b instanceof ComparatorBlock) {
             Direction out = s.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite();
-            return new String[]{"Компаратор: сигнал идёт на " + dirName(out) + ", сзади - то, что он читает.", "Ставь, глядя на " + dirName(out) + ". Режим - сравнение (огонёк спереди не горит)."};
+            return new String[]{Lang.t("Компаратор: сигнал идёт на ") + dirName(out) + Lang.t(", сзади - то, что он читает."), Lang.t("Ставь, глядя на ") + dirName(out) + Lang.t(". Режим - сравнение (огонёк спереди не горит).")};
         }
         if (b instanceof BaseRailBlock rb) {
             RailShape sh = s.getValue(rb.getShapeProperty());
-            String along = sh == RailShape.EAST_WEST ? "запад-восток (X)" : sh == RailShape.NORTH_SOUTH ? "север-юг (Z)" : "по склону";
-            String[] base = {"Рельсы вдоль " + along + ".", "Ставь, глядя вдоль линии. Следующий рельс сам состыкуется."};
+            String along = sh == RailShape.EAST_WEST ? Lang.t("запад-восток (X)") : sh == RailShape.NORTH_SOUTH ? Lang.t("север-юг (Z)") : Lang.t("по склону");
+            String[] base = {Lang.t("Рельсы вдоль ") + along + ".", Lang.t("Ставь, глядя вдоль линии. Следующий рельс сам состыкуется.")};
             return spec.note != null ? new String[]{base[0], base[1], spec.note} : base;
         }
         if (b instanceof ButtonBlock) {
             Direction f = s.getValue(BlockStateProperties.HORIZONTAL_FACING);
-            String[] base = {"Кнопка на грани блока со стороны " + dirName(f) + "."};
+            String[] base = {Lang.t("Кнопка на грани блока со стороны ") + dirName(f) + "."};
             return spec.note != null ? new String[]{base[0], spec.note} : base;
         }
-        if (b instanceof FarmBlock) return new String[]{"Положи землю и вскопай её мотыгой (грядка)."};
-        if (b instanceof StemBlock || b instanceof AttachedStemBlock) return new String[]{"Посади семена тыквы или арбуза на грядку."};
-        if (b instanceof SugarCaneBlock) return new String[]{"Тростник сажай на песок/землю рядом с водой."};
-        if (b instanceof CropBlock || b instanceof VegetationBlock) return new String[]{"Посади на подходящую почву."};
+        if (b instanceof FarmBlock) return new String[]{Lang.t("Положи землю и вскопай её мотыгой (грядка).")};
+        if (b instanceof StemBlock || b instanceof AttachedStemBlock) return new String[]{Lang.t("Посади семена тыквы или арбуза на грядку.")};
+        if (b instanceof SugarCaneBlock) return new String[]{Lang.t("Тростник сажай на песок/землю рядом с водой.")};
+        if (b instanceof CropBlock || b instanceof VegetationBlock) return new String[]{Lang.t("Посади на подходящую почву.")};
         if (spec.note != null) return new String[]{spec.note};
         return null;
     }

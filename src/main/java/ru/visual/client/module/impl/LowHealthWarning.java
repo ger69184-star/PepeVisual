@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -54,7 +55,7 @@ public class LowHealthWarning extends Module {
         }
         if (text.get()) {
             float hp = mc.player.getHealth() + mc.player.getAbsorptionAmount();
-            String s = "Мало здоровья: " + String.format(java.util.Locale.ROOT, "%.1f", hp / 2f) + " сердец";
+            String s = Lang.t("Мало здоровья: ") + String.format(java.util.Locale.ROOT, "%.1f", hp / 2f) + Lang.t(" сердец");
             int col = Draw.withAlpha(0xFF5050, (int) (180 + 75 * pulse));
             Draw.pill(g, s, w / 2, h / 2 - 30, col); // над прицелом: внизу уже броня и хотбар
         }

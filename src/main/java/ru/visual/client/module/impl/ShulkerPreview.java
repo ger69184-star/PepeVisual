@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -101,20 +102,20 @@ public class ShulkerPreview extends Module implements Config.DefaultOn {
                 String name = mc.level.getBlockState(pos).getBlock().getName().getString();
                 int tint = shulker ? tintOf(((ShulkerBoxBlockEntity) be).getColor()) : 0xFF8B6A3E;
                 ContainerMemory.Entry e = ContainerMemory.get(pos);
-                if (e == null) return new Preview(name + ": открой один раз, чтобы запомнить", null, tint);
+                if (e == null) return new Preview(name + Lang.t(": открой один раз, чтобы запомнить"), null, tint);
                 long sec = (System.currentTimeMillis() - e.time()) / 1000;
-                String ago = sec < 5 ? "сейчас" : sec < 60 ? sec + " сек назад" : (sec / 60) + " мин назад";
+                String ago = sec < 5 ? Lang.t("сейчас") : sec < 60 ? sec + Lang.t(" сек назад") : (sec / 60) + Lang.t(" мин назад");
                 return new Preview(name + " (" + ago + ")", e.items(), tint);
             }
         }
         if (!items.get()) return null;
         Entity ce = mc.crosshairPickEntity;
         if (ce instanceof Player pl) {
-            Preview p = fromStack(pl.getMainHandItem(), " - в руке " + pl.getName().getString());
+            Preview p = fromStack(pl.getMainHandItem(), Lang.t(" - в руке ") + pl.getName().getString());
             if (p != null) return p;
         }
         ItemEntity ie = lookedItem(mc);
-        if (ie != null) return fromStack(ie.getItem(), " (на земле)");
+        if (ie != null) return fromStack(ie.getItem(), Lang.t(" (на земле)"));
         return null;
     }
 
@@ -201,7 +202,7 @@ public class ShulkerPreview extends Module implements Config.DefaultOn {
                     total++;
                 }
             }
-            if (total == 0) Draw.textCentered(g, "пусто", w / 2, 16 + rows * 9 - 4, Draw.GRAY);
+            if (total == 0) Draw.textCentered(g, Lang.t("пусто"), w / 2, 16 + rows * 9 - 4, Draw.GRAY);
         }
         pose.popMatrix();
     }

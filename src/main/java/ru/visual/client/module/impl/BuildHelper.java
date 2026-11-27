@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.KeyMapping;
@@ -121,7 +122,7 @@ public class BuildHelper extends Module {
     public String info() {
         return switch (stage) {
             case BUILD -> done + "/" + total;
-            case DONE -> "готово";
+            case DONE -> Lang.t("готово");
             default -> null;
         };
     }
@@ -294,12 +295,12 @@ public class BuildHelper extends Module {
             rotate.cycle(1);
             ru.visual.client.module.ModuleManager.markDirty();
             if (stage == Stage.CONFIRM || stage == Stage.BUILD) recomputeFromZone(mc);
-            say("Поворот: " + rotate.get());
+            say(Lang.t("Поворот: ") + rotate.get());
         }
         if (pressed(VisualClient.buildCancel)) {
             switch (stage) {
-                case SELECT_B, CONFIRM, DONE -> { reset(); say("Выбор зоны сброшен"); }
-                case BUILD -> { stage = Stage.CONFIRM; say("Пауза. G - продолжить"); }
+                case SELECT_B, CONFIRM, DONE -> { reset(); say(Lang.t("Выбор зоны сброшен")); }
+                case BUILD -> { stage = Stage.CONFIRM; say(Lang.t("Пауза. G - продолжить")); }
                 default -> {}
             }
         }
@@ -307,28 +308,28 @@ public class BuildHelper extends Module {
             BlockPos look = lookBlock(mc);
             switch (stage) {
                 case SELECT_A -> {
-                    if (look == null) { say("Наведи прицел на блок - первый угол зоны"); return; }
+                    if (look == null) { say(Lang.t("Наведи прицел на блок - первый угол зоны")); return; }
                     cornerA = look;
                     stage = Stage.SELECT_B;
-                    say("Первый угол: " + look.toShortString());
+                    say(Lang.t("Первый угол: ") + look.toShortString());
                 }
                 case SELECT_B -> {
                     cornerB = look != null ? look : cornerA;
                     if (!fits(bp, rot, cornerA, cornerB) && fits(bp, (rot + 1) % 4, cornerA, cornerB)) {
                         rotate.cycle(1);
-                        say("Повернул чертёж, чтобы влез в зону");
+                        say(Lang.t("Повернул чертёж, чтобы влез в зону"));
                     }
                     recomputeFromZone(mc);
                     stage = Stage.CONFIRM;
                 }
                 case CONFIRM -> {
                     stage = Stage.BUILD;
-                    say("Начинаем! Ставь подсвеченный блок");
+                    say(Lang.t("Начинаем! Ставь подсвеченный блок"));
                 }
                 case BUILD -> {
                     if (current != null) {
                         skipped.add(current.pos);
-                        say("Шаг пропущен");
+                        say(Lang.t("Шаг пропущен"));
                         scan(mc, false);
                     }
                 }
@@ -348,14 +349,14 @@ public class BuildHelper extends Module {
         chunkAligned = null;
         if (al != null) {
             origin = al.offset(shiftX.asInt(), shiftY.asInt(), shiftZ.asInt());
-            say("Чертёж выровнен по спавнеру");
+            say(Lang.t("Чертёж выровнен по спавнеру"));
         } else if (bp.chunkCorner != null) {
             // фермы FunTime: лимит мобов - на чанк, поэтому центр фермы ставим ровно на стык 4 чанков
             int[] c = cornerLocal(bp, rot);
             int wx = Math.floorDiv(center.getX() + 8, 16) * 16, wz = Math.floorDiv(center.getZ() + 8, 16) * 16;
             origin = new BlockPos(wx - c[0] + shiftX.asInt(), origin.getY(), wz - c[1] + shiftZ.asInt());
             chunkAligned = new BlockPos(wx, origin.getY(), wz);
-            say("Ферма выровнена по стыку 4 чанков");
+            say(Lang.t("Ферма выровнена по стыку 4 чанков"));
         }
         buildCells(mc);
     }
@@ -458,7 +459,7 @@ public class BuildHelper extends Module {
         if (stage == Stage.BUILD && current == null && !cells.isEmpty()) {
             stage = Stage.DONE;
             if (sound.get()) mc.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.PLAYER_LEVELUP, 1.0f));
-            mc.player.displayClientMessage(Component.literal("[PepeVisual] Постройка \"" + bp().name + "\" готова!"), false);
+            mc.player.displayClientMessage(Component.literal(Lang.t("[PepeVisual] Постройка \"") + Lang.t(bp().name) + Lang.t("\" готова!")), false);
         }
         recentDone.values().removeIf(t -> now - t > 900);
     }
@@ -612,58 +613,58 @@ public class BuildHelper extends Module {
         String kc = key(VisualClient.buildConfirm), kr = key(VisualClient.buildRotate), kx = key(VisualClient.buildCancel);
         int ok = 0xFF7CFFB0, bad = 0xFFFF6A6A, yellow = 0xFFFFE030;
 
-        add(lines, colors, bp.name + "  [" + bp.category + "]", Draw.accent());
+        add(lines, colors, Lang.t(bp.name) + "  [" + Lang.t(bp.category) + "]", Draw.accent());
         switch (stage) {
             case SELECT_A -> {
-                add(lines, colors, "Шаг 1/3: выбери зону", Draw.WHITE);
-                add(lines, colors, "[" + kc + "] - первый угол (блок под прицелом)", yellow);
-                add(lines, colors, "[" + kr + "] - повернуть (" + rotate.get() + ")", Draw.GRAY);
-                add(lines, colors, "Размер: " + width(bp, rot) + " x " + depth(bp, rot) + ", высота " + bp.sy, Draw.GRAY);
-                for (String s : wrap(bp.description, 46)) add(lines, colors, s, Draw.GRAY);
+                add(lines, colors, Lang.t("Шаг 1/3: выбери зону"), Draw.WHITE);
+                add(lines, colors, "[" + kc + Lang.t("] - первый угол (блок под прицелом)"), yellow);
+                add(lines, colors, "[" + kr + Lang.t("] - повернуть (") + rotate.get() + ")", Draw.GRAY);
+                add(lines, colors, Lang.t("Размер: ") + width(bp, rot) + " x " + depth(bp, rot) + Lang.t(", высота ") + bp.sy, Draw.GRAY);
+                for (String s : wrap(Lang.t(bp.description), 46)) add(lines, colors, s, Draw.GRAY);
             }
             case SELECT_B -> {
                 BlockPos look = lookBlock(mc);
                 BlockPos b = look != null ? look : cornerA;
                 int zx = Math.abs(cornerA.getX() - b.getX()) + 1, zz = Math.abs(cornerA.getZ() - b.getZ()) + 1;
                 boolean fit = fits(bp, rot, cornerA, b) || fits(bp, (rot + 1) % 4, cornerA, b);
-                add(lines, colors, "Шаг 2/3: второй угол зоны", Draw.WHITE);
-                add(lines, colors, "Зона " + zx + " x " + zz + ", нужно " + width(bp, rot) + " x " + depth(bp, rot), fit ? ok : bad);
-                add(lines, colors, "[" + kc + "] - второй угол, [" + kx + "] - отмена", yellow);
+                add(lines, colors, Lang.t("Шаг 2/3: второй угол зоны"), Draw.WHITE);
+                add(lines, colors, Lang.t("Зона ") + zx + " x " + zz + Lang.t(", нужно ") + width(bp, rot) + " x " + depth(bp, rot), fit ? ok : bad);
+                add(lines, colors, "[" + kc + Lang.t("] - второй угол, [") + kx + Lang.t("] - отмена"), yellow);
             }
             case CONFIRM -> {
-                add(lines, colors, "Шаг 3/3: проверь и начни", Draw.WHITE);
-                add(lines, colors, "[" + kc + "] - начать стройку, [" + kr + "] - повернуть, [" + kx + "] - заново", yellow);
-                if (alignedTo != null) add(lines, colors, "Выровнено по спавнеру " + alignedTo.toShortString(), ok);
-                if (chunkAligned != null) add(lines, colors, "Центр на стыке 4 чанков: " + chunkAligned.getX() + ", " + chunkAligned.getZ() + " (розовая линия)", ok);
-                if (existingMissing > 0) add(lines, colors, "Нет спавнера в нужном месте - выдели зону вокруг данжа", bad);
-                if (wrong > 0) add(lines, colors, "Мешают/не так стоят: " + wrong + " блоков (красные)", bad);
-                add(lines, colors, "Уже на месте: " + done + " из " + total, done > 0 ? ok : Draw.GRAY);
+                add(lines, colors, Lang.t("Шаг 3/3: проверь и начни"), Draw.WHITE);
+                add(lines, colors, "[" + kc + Lang.t("] - начать стройку, [") + kr + Lang.t("] - повернуть, [") + kx + Lang.t("] - заново"), yellow);
+                if (alignedTo != null) add(lines, colors, Lang.t("Выровнено по спавнеру ") + alignedTo.toShortString(), ok);
+                if (chunkAligned != null) add(lines, colors, Lang.t("Центр на стыке 4 чанков: ") + chunkAligned.getX() + ", " + chunkAligned.getZ() + Lang.t(" (розовая линия)"), ok);
+                if (existingMissing > 0) add(lines, colors, Lang.t("Нет спавнера в нужном месте - выдели зону вокруг данжа"), bad);
+                if (wrong > 0) add(lines, colors, Lang.t("Мешают/не так стоят: ") + wrong + Lang.t(" блоков (красные)"), bad);
+                add(lines, colors, Lang.t("Уже на месте: ") + done + Lang.t(" из ") + total, done > 0 ? ok : Draw.GRAY);
                 materialLines(mc, lines, colors, 8);
-                add(lines, colors, "Как строить:", Draw.accent());
-                for (String s : bp.guide) for (String w : wrap(s, 52)) add(lines, colors, w, Draw.GRAY);
+                add(lines, colors, Lang.t("Как строить:"), Draw.accent());
+                for (String s : bp.guide) for (String w : wrap(Lang.t(s), 52)) add(lines, colors, w, Draw.GRAY);
             }
             case BUILD -> {
                 int pct = total == 0 ? 100 : done * 100 / total;
-                add(lines, colors, "Прогресс: " + done + " / " + total + " (" + pct + "%)", Draw.WHITE);
+                add(lines, colors, Lang.t("Прогресс: ") + done + " / " + total + " (" + pct + "%)", Draw.WHITE);
                 if (current != null) {
                     boolean dig = current.st == St.WRONG;
-                    String what = current.spec.match() == Blueprint.Match.AIR ? "Убери блок" : dig ? "Замени: " + current.spec.displayName() : "Поставь: " + current.spec.displayName();
-                    add(lines, colors, what + "  (слой " + (current.layer + 1) + "/" + bp.sy + ")", dig ? bad : yellow);
+                    String what = current.spec.match() == Blueprint.Match.AIR ? Lang.t("Убери блок") : dig ? Lang.t("Замени: ") + current.spec.displayName() : Lang.t("Поставь: ") + current.spec.displayName();
+                    add(lines, colors, what + Lang.t("  (слой ") + (current.layer + 1) + "/" + bp.sy + ")", dig ? bad : yellow);
                     if (dig && current.spec.match() != Blueprint.Match.AIR) {
                         BlockState have = mc.level.getBlockState(current.pos);
-                        if (have.is(current.want.getBlock())) add(lines, colors, "Блок тот, но повёрнут не так - сломай и поставь заново", bad);
-                        else add(lines, colors, "Сейчас там: " + have.getBlock().getName().getString(), bad);
+                        if (have.is(current.want.getBlock())) add(lines, colors, Lang.t("Блок тот, но повёрнут не так - сломай и поставь заново"), bad);
+                        else add(lines, colors, Lang.t("Сейчас там: ") + have.getBlock().getName().getString(), bad);
                     }
                     String[] hint = Blueprint.placeHint(current.spec, current.want);
-                    if (hint != null) for (String h : hint) for (String w : wrap(h, 52)) add(lines, colors, w, Draw.WHITE);
+                    if (hint != null) for (String h : hint) for (String w : wrap(Lang.t(h), 52)) add(lines, colors, w, Draw.WHITE);
                     BlockPos p = current.pos;
                     Vec3 me = mc.player.position();
                     double dist = Vec3.atCenterOf(p).distanceTo(me);
                     int dy = p.getY() - mc.player.blockPosition().getY();
-                    add(lines, colors, "Где: " + p.getX() + " " + p.getY() + " " + p.getZ() + "  (" + (int) dist + " бл."
-                            + (dy > 0 ? ", выше на " + dy : dy < 0 ? ", ниже на " + (-dy) : "") + ")", Draw.GRAY);
+                    add(lines, colors, Lang.t("Где: ") + p.getX() + " " + p.getY() + " " + p.getZ() + "  (" + (int) dist + Lang.t(" бл.")
+                            + (dy > 0 ? Lang.t(", выше на ") + dy : dy < 0 ? Lang.t(", ниже на ") + (-dy) : "") + ")", Draw.GRAY);
                     if (!upcoming.isEmpty()) {
-                        StringBuilder sb = new StringBuilder("Дальше: ");
+                        StringBuilder sb = new StringBuilder(Lang.t("Дальше: "));
                         for (int i = 0; i < Math.min(3, upcoming.size()); i++) {
                             if (i > 0) sb.append(", ");
                             sb.append(upcoming.get(i).spec.displayName());
@@ -671,13 +672,13 @@ public class BuildHelper extends Module {
                         add(lines, colors, sb.toString(), Draw.GRAY);
                     }
                 }
-                add(lines, colors, "[" + kc + "] - пропустить шаг, [" + kx + "] - пауза", Draw.GRAY);
+                add(lines, colors, "[" + kc + Lang.t("] - пропустить шаг, [") + kx + Lang.t("] - пауза"), Draw.GRAY);
                 materialLines(mc, lines, colors, 6);
             }
             case DONE -> {
-                add(lines, colors, "Готово! Постройка завершена.", ok);
-                for (String s : bp.guide) for (String w : wrap(s, 52)) add(lines, colors, w, Draw.GRAY);
-                add(lines, colors, "[" + kc + "] - новая постройка", yellow);
+                add(lines, colors, Lang.t("Готово! Постройка завершена."), ok);
+                for (String s : bp.guide) for (String w : wrap(Lang.t(s), 52)) add(lines, colors, w, Draw.GRAY);
+                add(lines, colors, "[" + kc + Lang.t("] - новая постройка"), yellow);
             }
         }
         if (!message.isEmpty() && System.currentTimeMillis() - messageTime < 3000) add(lines, colors, message, 0xFFFFC040);
@@ -712,7 +713,7 @@ public class BuildHelper extends Module {
                 Draw.textCentered(g, s, (int) o[0], (int) o[1], current.st == St.WRONG ? bad : yellow);
             } else {
                 int sw = mc.getWindow().getGuiScaledWidth();
-                Draw.textCentered(g, "Следующий блок у тебя за спиной", sw / 2, mc.getWindow().getGuiScaledHeight() / 2 + 30, yellow);
+                Draw.textCentered(g, Lang.t("Следующий блок у тебя за спиной"), sw / 2, mc.getWindow().getGuiScaledHeight() / 2 + 30, yellow);
             }
             for (int i = 0; i < upcoming.size(); i++) {
                 Vec3 u = Vec3.atCenterOf(upcoming.get(i).pos);
@@ -731,7 +732,7 @@ public class BuildHelper extends Module {
     private void materialLines(Minecraft mc, List<String> lines, List<Integer> colors, int limit) {
         Map<String, int[]> need = materials(mc);
         if (need.isEmpty()) return;
-        add(lines, colors, "Материалы (нужно / есть):", Draw.accent());
+        add(lines, colors, Lang.t("Материалы (нужно / есть):"), Draw.accent());
         Iterator<Map.Entry<String, int[]>> it = need.entrySet().stream()
                 .sorted((a, b) -> b.getValue()[0] - a.getValue()[0]).iterator();
         int n = 0;
@@ -739,10 +740,10 @@ public class BuildHelper extends Module {
             Map.Entry<String, int[]> e = it.next();
             int[] v = e.getValue();
             boolean enough = v[1] >= v[0];
-            String haveS = v[1] >= 999 ? "есть" : String.valueOf(v[1]);
+            String haveS = v[1] >= 999 ? Lang.t("есть") : String.valueOf(v[1]);
             add(lines, colors, (enough ? "✔ " : "✘ ") + e.getKey() + "  " + v[0] + " / " + haveS, enough ? 0xFF7CFFB0 : 0xFFFF6A6A);
         }
-        if (need.size() > limit) add(lines, colors, "...и ещё " + (need.size() - limit), Draw.GRAY);
+        if (need.size() > limit) add(lines, colors, Lang.t("...и ещё ") + (need.size() - limit), Draw.GRAY);
     }
 
     private static void add(List<String> lines, List<Integer> colors, String s, int c) {

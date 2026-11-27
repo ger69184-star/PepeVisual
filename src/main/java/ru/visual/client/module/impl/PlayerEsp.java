@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -190,7 +191,7 @@ public class PlayerEsp extends Module implements Config.DefaultOn {
         float hp = p.getHealth() + p.getAbsorptionAmount();
         String name = Draw.trim(p.getName().getString(), 110);
         String hpS = String.format(Locale.ROOT, hp >= 10 ? "%.0f" : "%.1f", hp);
-        String dS = distance.get() ? (int) en.dist + "м" : "";
+        String dS = distance.get() ? (int) en.dist + Lang.t("м") : "";
         int nw = Draw.width(name), hw = Draw.width(hpS), dw = dS.isEmpty() ? 0 : Draw.width(dS);
         int tw = nw + 5 + hw + (dw > 0 ? 5 + dw : 0);
         float s = (float) Math.max(0.7, Math.min(1.0, 1.0 - (en.dist - 12) / 120.0));

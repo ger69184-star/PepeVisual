@@ -37,6 +37,7 @@ public abstract class Module {
     }
 
     public void setEnabled(boolean value) {
+        if (settingsOnly()) value = true;
         if (value == enabled) return;
         enabled = value;
         try {
@@ -52,7 +53,7 @@ public abstract class Module {
      * поэтому onEnable не вызывается - модули сами подхватывают состояние в onTick).
      */
     public void setEnabledSilently(boolean value) {
-        this.enabled = value;
+        this.enabled = value || settingsOnly();
     }
 
     public void toggle() {
@@ -64,7 +65,12 @@ public abstract class Module {
 
     /** Включена ли функция при первом запуске (нет конфига). */
     public boolean defaultEnabled() {
-        return this instanceof Config.DefaultOn;
+        return settingsOnly() || this instanceof Config.DefaultOn;
+    }
+
+    /** Карточка только с настройками (без переключателя, всегда включена) - например, настройки меню. */
+    public boolean settingsOnly() {
+        return false;
     }
 
     /** true - onTick вызывается и в главном меню (когда мира нет). */

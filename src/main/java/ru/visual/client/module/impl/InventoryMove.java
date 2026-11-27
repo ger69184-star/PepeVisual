@@ -11,7 +11,6 @@ import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
 import net.minecraft.util.Mth;
 import ru.visual.client.module.Category;
 import ru.visual.client.module.Module;
-import ru.visual.client.module.ModuleManager;
 import ru.visual.client.setting.BoolSetting;
 import ru.visual.client.util.Keys;
 
@@ -57,9 +56,8 @@ public class InventoryMove extends Module {
         mc.options.keyLeft.setDown(physical(mc, mc.options.keyLeft));
         mc.options.keyRight.setDown(physical(mc, mc.options.keyRight));
         mc.options.keyJump.setDown(jump.get() && physical(mc, mc.options.keyJump));
-        boolean auto = false;
-        for (Module m : ModuleManager.MODULES) if (m instanceof AutoSprint && m.isEnabled()) auto = true;
-        mc.options.keySprint.setDown(sprint.get() && (physical(mc, mc.options.keySprint) || (auto && fwd)));
+        // Автоспринт работает сам (LocalPlayerMixin). Клавишу-переключатель бега не трогаем: setDown(true) её переключает.
+        if (!mc.options.toggleSprint().get()) mc.options.keySprint.setDown(sprint.get() && physical(mc, mc.options.keySprint));
 
         if (arrows.get()) {
             float yaw = 0, pitch = 0;

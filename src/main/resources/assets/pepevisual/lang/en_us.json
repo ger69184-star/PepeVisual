@@ -80,5 +80,14 @@
   "key.pepevisual.bind.totempops": "PV: TotemPops",
   "key.pepevisual.bind.chattimestamps": "PV: ChatTimestamps",
   "key.pepevisual.bind.lowhealth": "PV: LowHealth",
-  "key.pepevisual.bind.hotbarview": "PV: HotbarView"
+  "key.pepevisual.bind.hotbarview": "PV: HotbarView",
+  "key.pepevisual.bind.aimalert": "PV: AimAlert",
+  "key.pepevisual.bind.killeffects": "PV: KillEffects",
+  "key.pepevisual.bind.combohud": "PV: ComboHUD",
+  "key.pepevisual.bind.autototem": "PV: AutoTotem",
+  "key.pepevisual.bind.autoarmor": "PV: AutoArmor",
+  "key.pepevisual.bind.antiafk": "PV: AntiAFK",
+  "key.pepevisual.bind.menu": "PV: Menu",
+  "key.pepevisual.bind.fasttransparency": "PV: Fast Transparency",
+  "key.pepevisual.bind.novsync": "PV: No VSync"
 }

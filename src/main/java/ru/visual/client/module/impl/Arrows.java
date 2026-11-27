@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -84,7 +85,7 @@ public class Arrows extends Module {
             pose.popMatrix();
 
             if (names.get()) {
-                String label = (isPlayer ? e.getName().getString() + " " : "") + (int) dist + "м";
+                String label = (isPlayer ? e.getName().getString() + " " : "") + (int) dist + Lang.t("м");
                 float lr = r + s + 8;
                 int lx = (int) (cx + Mth.sin(theta) * lr), ly = (int) (cy - Mth.cos(theta) * lr);
                 Draw.textCentered(g, label, lx, ly - 4, c);

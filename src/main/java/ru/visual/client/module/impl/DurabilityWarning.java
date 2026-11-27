@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -64,7 +65,7 @@ public class DurabilityWarning extends HudModule implements Config.DefaultOn {
         int w = mc.getWindow().getGuiScaledWidth(), h = mc.getWindow().getGuiScaledHeight();
         boolean blink = (System.currentTimeMillis() / 400) % 2 == 0;
         int y = h / 2 - 50 - lines.size() * 11 + oy();
-        String title = "! Прочность на исходе !";
+        String title = Lang.t("! Прочность на исходе !");
         Draw.textCentered(g, title, w / 2 + ox(), y, blink ? 0xFFFF4040 : 0xFFFFB0B0);
         y += 11;
         for (String s : lines) {

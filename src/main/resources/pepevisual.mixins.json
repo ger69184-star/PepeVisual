@@ -20,7 +20,8 @@
     "ClientLevelDataMixin",
     "ClientPacketListenerMixin",
     "ChatComponentMixin",
-    "AbstractContainerScreenAccessor"
+    "AbstractContainerScreenAccessor",
+    "LocalPlayerMixin"
   ],
   "injectors": {
     "defaultRequire": 0

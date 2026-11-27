@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
@@ -127,7 +128,7 @@ public class FreeLook extends Module implements Config.DefaultOn {
 
     @Override
     public String info() {
-        return active ? "активна" : null;
+        return active ? Lang.t("активна") : null;
     }
 
     public static FreeLook get() {

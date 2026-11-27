@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -73,11 +74,11 @@ public class Trajectories extends Module implements Config.DefaultOn {
                 double gravity;
                 String label;
                 EntityType<?> t = e.getType();
-                if (t == EntityType.ENDER_PEARL) { gravity = 0.03; label = "Жемчуг"; }
-                else if (t == EntityType.SNOWBALL) { gravity = 0.03; label = "Снежок"; }
-                else if (t == EntityType.EGG) { gravity = 0.03; label = "Яйцо"; }
-                else if (t == EntityType.ARROW || t == EntityType.SPECTRAL_ARROW) { gravity = 0.05; label = "Стрела"; }
-                else if (t == EntityType.TRIDENT) { gravity = 0.05; label = "Трезубец"; }
+                if (t == EntityType.ENDER_PEARL) { gravity = 0.03; label = Lang.t("Жемчуг"); }
+                else if (t == EntityType.SNOWBALL) { gravity = 0.03; label = Lang.t("Снежок"); }
+                else if (t == EntityType.EGG) { gravity = 0.03; label = Lang.t("Яйцо"); }
+                else if (t == EntityType.ARROW || t == EntityType.SPECTRAL_ARROW) { gravity = 0.05; label = Lang.t("Стрела"); }
+                else if (t == EntityType.TRIDENT) { gravity = 0.05; label = Lang.t("Трезубец"); }
                 else continue;
                 Vec3 v = e.getDeltaMovement();
                 if (v.lengthSqr() < 0.02) continue; // стоит / воткнулась
@@ -93,20 +94,20 @@ public class Trajectories extends Module implements Config.DefaultOn {
 
     private Params paramsFor(Minecraft mc, ItemStack st) {
         if (st.isEmpty()) return null;
-        if (st.is(Items.ENDER_PEARL)) return new Params(1.5, 0.03, 0, "Жемчуг");
-        if (st.is(Items.SNOWBALL)) return new Params(1.5, 0.03, 0, "Снежок");
-        if (st.is(Items.EGG)) return new Params(1.5, 0.03, 0, "Яйцо");
-        if (st.is(Items.SPLASH_POTION) || st.is(Items.LINGERING_POTION)) return new Params(0.5, 0.05, -20, "Зелье");
-        if (st.is(Items.EXPERIENCE_BOTTLE)) return new Params(0.7, 0.07, -20, "Опыт");
-        if (st.is(Items.TRIDENT) && mc.player.isUsingItem()) return new Params(2.5, 0.05, 0, "Трезубец");
+        if (st.is(Items.ENDER_PEARL)) return new Params(1.5, 0.03, 0, Lang.t("Жемчуг"));
+        if (st.is(Items.SNOWBALL)) return new Params(1.5, 0.03, 0, Lang.t("Снежок"));
+        if (st.is(Items.EGG)) return new Params(1.5, 0.03, 0, Lang.t("Яйцо"));
+        if (st.is(Items.SPLASH_POTION) || st.is(Items.LINGERING_POTION)) return new Params(0.5, 0.05, -20, Lang.t("Зелье"));
+        if (st.is(Items.EXPERIENCE_BOTTLE)) return new Params(0.7, 0.07, -20, Lang.t("Опыт"));
+        if (st.is(Items.TRIDENT) && mc.player.isUsingItem()) return new Params(2.5, 0.05, 0, Lang.t("Трезубец"));
         if (st.is(Items.BOW) && mc.player.isUsingItem()) {
             float f = mc.player.getTicksUsingItem() / 20.0f;
             f = (f * f + f * 2.0f) / 3.0f;
             if (f < 0.1f) return null;
             if (f > 1f) f = 1f;
-            return new Params(f * 3.0, 0.05, 0, "Стрела");
+            return new Params(f * 3.0, 0.05, 0, Lang.t("Стрела"));
         }
-        if (st.is(Items.CROSSBOW) && CrossbowItem.isCharged(st)) return new Params(3.15, 0.05, 0, "Арбалет");
+        if (st.is(Items.CROSSBOW) && CrossbowItem.isCharged(st)) return new Params(3.15, 0.05, 0, Lang.t("Арбалет"));
         return null;
     }
 
@@ -156,7 +157,7 @@ public class Trajectories extends Module implements Config.DefaultOn {
         Draw.outline(g, x - 4, y - 4, x + 5, y + 5, c);
         Draw.dot(g, x, y, 2, c);
         String text = label + (owner != null ? " (" + owner + ")" : "") + " " + String.format(java.util.Locale.ROOT, "%.1f", dist)
-                + "м " + String.format(java.util.Locale.ROOT, "%.1f", sim.steps / 20.0) + "с";
+                + Lang.t("м ") + String.format(java.util.Locale.ROOT, "%.1f", sim.steps / 20.0) + Lang.t("с");
         int tw = Draw.width(text);
         Draw.rect(g, x - tw / 2 - 2, y + 7, x + tw / 2 + 2, y + 18, 0x90000000);
         Draw.text(g, text, x - tw / 2, y + 9, c);

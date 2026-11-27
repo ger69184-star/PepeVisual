@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -72,7 +73,7 @@ public class HotbarView extends HudModule implements Config.DefaultOn {
         if (t instanceof AbstractClientPlayer acp) PlayerFaceRenderer.draw(g, acp.getSkin(), x + 8, y + 5, 12);
         float hp = t.getHealth() + t.getAbsorptionAmount();
         String hpS = Math.round(hp) + " HP";
-        String dist = (int) mc.player.distanceTo(t) + " м";
+        String dist = (int) mc.player.distanceTo(t) + Lang.t(" м");
         int right = x + pw - pad;
         Draw.textRight(g, hpS, right, y + 6, t.getAbsorptionAmount() > 0 ? 0xFFFFD700 : Draw.healthColor(t.getHealth(), t.getMaxHealth()));
         int nameMax = pw - 24 - Draw.width(hpS) - Draw.width(dist) - 14;
@@ -97,7 +98,7 @@ public class HotbarView extends HudModule implements Config.DefaultOn {
                 Draw.item(g, inHand ? hand : s.stack, cx, hy);
             }
         }
-        if (seen.isEmpty()) Draw.textCentered(g, hand.isEmpty() ? "Пустая рука" : "Ждём, пока сменит слот…", x + pw / 2, hy + 4, Draw.GRAY);
+        if (seen.isEmpty()) Draw.textCentered(g, hand.isEmpty() ? Lang.t("Пустая рука") : Lang.t("Ждём, пока сменит слот…"), x + pw / 2, hy + 4, Draw.GRAY);
 
         if (armor.get()) {
             int ay = hy + 21;
@@ -128,6 +129,6 @@ public class HotbarView extends HudModule implements Config.DefaultOn {
             max = Math.max(max, p);
         }
         if (max < 0) return null;
-        return min == max ? min + "%" : "мин " + min + "%";
+        return min == max ? min + "%" : Lang.t("мин ") + min + "%";
     }
 }

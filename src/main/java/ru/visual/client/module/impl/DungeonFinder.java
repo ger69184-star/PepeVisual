@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -137,7 +138,7 @@ public class DungeonFinder extends Module {
             }
             result.add(new Found(f.pos, f.kind, dungeon));
             if (notify.get() && (f.kind == Kind.SPAWNER || f.kind == Kind.TRIAL) && notified.add(f.pos)) {
-                mc.player.displayClientMessage(Component.literal("[PepeVisual] " + (dungeon ? "Данж" : "Спавнер") + ": "
+                mc.player.displayClientMessage(Component.literal("[PepeVisual] " + (dungeon ? Lang.t("Данж") : Lang.t("Спавнер")) + ": "
                         + f.pos.getX() + " " + f.pos.getY() + " " + f.pos.getZ()), false);
             }
         }
@@ -188,8 +189,8 @@ public class DungeonFinder extends Module {
             int x1 = (int) r[0], y1 = (int) r[1], x2 = (int) r[2], y2 = (int) r[3];
             Draw.corners(g, x1, y1, x2, y2, color);
             if ((spawner || dist < 40) && labels++ < 40) {
-                String name = f.dungeon ? "Данж (спавнер)" : f.kind.title;
-                Draw.pill(g, name + " " + (int) dist + "м", (x1 + x2) / 2, y1 - 12, color);
+                String name = f.dungeon ? Lang.t("Данж (спавнер)") : Lang.t(f.kind.title);
+                Draw.pill(g, name + " " + (int) dist + Lang.t("м"), (x1 + x2) / 2, y1 - 12, color);
             }
         }
 
@@ -200,8 +201,8 @@ public class DungeonFinder extends Module {
             int y = 22; // ниже боссбара не налезаем на его заголовок
             for (int i = 0; i < Math.min(3, near.size()); i++) {
                 Found f = near.get(i);
-                String s = (f.dungeon ? "Данж: " : "Спавнер: ") + f.pos.getX() + " " + f.pos.getY() + " " + f.pos.getZ()
-                        + " (" + (int) Vec3.atCenterOf(f.pos).distanceTo(me) + "м)";
+                String s = (f.dungeon ? Lang.t("Данж: ") : Lang.t("Спавнер: ")) + f.pos.getX() + " " + f.pos.getY() + " " + f.pos.getZ()
+                        + " (" + (int) Vec3.atCenterOf(f.pos).distanceTo(me) + Lang.t("м)");
                 Draw.pill(g, s, w / 2, y + 2, f.dungeon ? 0xFFFF9020 : 0xFFFF3FA0);
                 y += 14;
             }

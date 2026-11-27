@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -83,14 +84,14 @@ public class StorageEsp extends Module {
 
     private Found classify(BlockEntity be) {
         BlockPos p = be.getBlockPos();
-        if (be instanceof TrappedChestBlockEntity) return chests.get() ? new Found(p, 0xFFFF6A3D, "Ловушка") : null;
-        if (be instanceof ChestBlockEntity) return chests.get() ? new Found(p, 0xFFFFB13D, "Сундук") : null;
-        if (be instanceof EnderChestBlockEntity) return ender.get() ? new Found(p, 0xFFB84DFF, "Эндер-сундук") : null;
-        if (be instanceof ShulkerBoxBlockEntity) return shulkers.get() ? new Found(p, 0xFFFF5FD2, "Шалкер") : null;
-        if (be instanceof BarrelBlockEntity) return barrels.get() ? new Found(p, 0xFFC08A4A, "Бочка") : null;
-        if (be instanceof AbstractFurnaceBlockEntity) return furnaces.get() ? new Found(p, 0xFFAAAAAA, "Печь") : null;
-        if (be instanceof HopperBlockEntity || be instanceof DispenserBlockEntity) return hoppers.get() ? new Found(p, 0xFF7A7A90, "Воронка") : null;
-        if (be instanceof SpawnerBlockEntity) return spawners.get() ? new Found(p, 0xFF3DFF8A, "Спавнер") : null;
+        if (be instanceof TrappedChestBlockEntity) return chests.get() ? new Found(p, 0xFFFF6A3D, Lang.t("Ловушка")) : null;
+        if (be instanceof ChestBlockEntity) return chests.get() ? new Found(p, 0xFFFFB13D, Lang.t("Сундук")) : null;
+        if (be instanceof EnderChestBlockEntity) return ender.get() ? new Found(p, 0xFFB84DFF, Lang.t("Эндер-сундук")) : null;
+        if (be instanceof ShulkerBoxBlockEntity) return shulkers.get() ? new Found(p, 0xFFFF5FD2, Lang.t("Шалкер")) : null;
+        if (be instanceof BarrelBlockEntity) return barrels.get() ? new Found(p, 0xFFC08A4A, Lang.t("Бочка")) : null;
+        if (be instanceof AbstractFurnaceBlockEntity) return furnaces.get() ? new Found(p, 0xFFAAAAAA, Lang.t("Печь")) : null;
+        if (be instanceof HopperBlockEntity || be instanceof DispenserBlockEntity) return hoppers.get() ? new Found(p, 0xFF7A7A90, Lang.t("Воронка")) : null;
+        if (be instanceof SpawnerBlockEntity) return spawners.get() ? new Found(p, 0xFF3DFF8A, Lang.t("Спавнер")) : null;
         return null;
     }
 
@@ -135,7 +136,7 @@ public class StorageEsp extends Module {
                 Draw.corners(g, x1, y1, x2, y2, Draw.withAlpha(f.color(), a));
             }
             if (labels.get() && taken.size() < 40) {
-                String s = f.name() + " " + (int) d + "м";
+                String s = f.name() + " " + (int) d + Lang.t("м");
                 int tw = Draw.width(s) + 6;
                 int cx = (x1 + x2) / 2;
                 int[] want = {cx - tw / 2, y1 - 14, cx + tw / 2, y1 - 2};

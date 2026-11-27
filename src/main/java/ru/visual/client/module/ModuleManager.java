@@ -1,5 +1,6 @@
 package ru.visual.client.module;
 
+import ru.visual.client.util.Lang;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.DeltaTracker;
@@ -87,11 +88,12 @@ public final class ModuleManager {
         MODULES.add(new SpawnHighlight());
         MODULES.add(new Explosions());
         MODULES.add(new Breadcrumbs());
+        MODULES.add(new AimAlert());
+        MODULES.add(new KillEffects());
 
         // ---- HUD ----
         pepe = new PepeBackground();
         MODULES.add(pepe);
-        MODULES.add(new Interface());
         MODULES.add(new Watermark());
         MODULES.add(new TargetHud());
         MODULES.add(new HotbarView());
@@ -112,6 +114,7 @@ public final class ModuleManager {
         MODULES.add(new Compass());
         MODULES.add(new InventoryHud());
         MODULES.add(new SessionStats());
+        MODULES.add(new ComboHud());
 
         // ---- NoRender ----
         noRender = new NoRender();
@@ -126,6 +129,8 @@ public final class ModuleManager {
         MODULES.add(new BaseFinder());
         MODULES.add(new AutoTool());
         MODULES.add(new AutoEat());
+        MODULES.add(new AutoTotem());
+        MODULES.add(new AutoArmor());
 
         // ---- Movement ----
         MODULES.add(new AutoSprint());
@@ -140,6 +145,7 @@ public final class ModuleManager {
         MODULES.add(new Waypoints());
         MODULES.add(new DeathInfo());
         MODULES.add(new LogoutSpots());
+        MODULES.add(new AntiAfk());
 
         totemPops = new TotemPops();
         MODULES.add(totemPops);
@@ -148,6 +154,10 @@ public final class ModuleManager {
 
         // ---- Optimization: каждая настройка - отдельная кнопка ----
         MODULES.addAll(GraphicsTweak.createAll());
+
+        // ---- Menu: оформление меню, тема, язык ----
+        MODULES.add(new MenuSettings());
+        MODULES.add(new Interface());
 
         // Клавиша включения для каждой функции (меняется в меню клиента)
         for (Module m : MODULES) {
@@ -170,7 +180,7 @@ public final class ModuleManager {
     }
 
     public static String bindName(Module m) {
-        if (m.bind == null || m.bind.isUnbound()) return "нет";
+        if (m.bind == null || m.bind.isUnbound()) return Lang.t("нет");
         return m.bind.getTranslatedKeyMessage().getString();
     }
 

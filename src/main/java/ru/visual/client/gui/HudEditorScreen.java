@@ -1,5 +1,6 @@
 package ru.visual.client.gui;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
@@ -74,13 +75,13 @@ public class HudEditorScreen extends Screen {
                 g.fill(this.width / 2, 0, this.width / 2 + 1, this.height, Draw.withAlpha(accent, 0x90));
             }
         }
-        String hint = "ЛКМ - тянуть   ПКМ - на место   R - сбросить все   Esc - назад";
+        String hint = Lang.t("ЛКМ - тянуть   ПКМ - на место   R - сбросить все   Esc - назад");
         int w = Draw.width(hint);
         Draw.round(g, this.width / 2 - w / 2 - 6, 4, this.width / 2 + w / 2 + 6, 18, 5, 0xD0101018);
         Draw.textCentered(g, hint, this.width / 2, 7, 0xFFE0E0E0);
         if (!hidden.isEmpty()) {
             // элементы, которым сейчас нечего показать (нет цели, нет эффектов...), иначе непонятно, куда они делись
-            String line = Draw.trim("Сейчас не видны: " + String.join(", ", hidden), this.width - 20);
+            String line = Draw.trim(Lang.t("Сейчас не видны: ") + String.join(", ", hidden), this.width - 20);
             int lw = Draw.width(line);
             Draw.round(g, this.width / 2 - lw / 2 - 6, 21, this.width / 2 + lw / 2 + 6, 35, 5, 0xB0101018);
             Draw.textCentered(g, line, this.width / 2, 24, 0xFFA0A0B0);

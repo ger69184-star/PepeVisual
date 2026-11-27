@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
@@ -65,7 +66,7 @@ public class AutoPearl extends Module {
 
     @Override
     public String info() {
-        return mode.is("Авто") ? "авто" : "клавиша";
+        return mode.is("Авто") ? Lang.t("авто") : Lang.t("клавиша");
     }
 
     @Override
@@ -109,7 +110,7 @@ public class AutoPearl extends Module {
         if (t == null) {
             cached = null;
             if (keyMode) {
-                say(p, "AutoPearl: нет цели - сначала ударь врага");
+                say(p, Lang.t("AutoPearl: нет цели - сначала ударь врага"));
                 setEnabled(false);
             }
             return;
@@ -161,7 +162,7 @@ public class AutoPearl extends Module {
                 }
             }
             if (slot < 0) {
-                if (verbose || tick % 100 == 0) say(p, "AutoPearl: нет жемчуга в хотбаре");
+                if (verbose || tick % 100 == 0) say(p, Lang.t("AutoPearl: нет жемчуга в хотбаре"));
                 lastThrow = tick;
                 return;
             }
@@ -171,7 +172,7 @@ public class AutoPearl extends Module {
 
         Solution s = solve(mc, p, t);
         if (s == null || s.miss > accuracy.get()) {
-            if (verbose) say(p, "AutoPearl: не долететь до цели (мешают блоки или слишком далеко)");
+            if (verbose) say(p, Lang.t("AutoPearl: не долететь до цели (мешают блоки или слишком далеко)"));
             lastThrow = tick - (long) (interval.get() * 20) + 10; // повторим через полсекунды
             return;
         }
@@ -289,20 +290,20 @@ public class AutoPearl extends Module {
         String state;
         int col;
         if (t == null) {
-            state = "ударь врага";
+            state = Lang.t("ударь врага");
             col = Draw.GRAY;
         } else if (pearls == 0) {
-            state = "нет жемчуга";
+            state = Lang.t("нет жемчуга");
             col = 0xFFFF6A6A;
         } else {
             double d = mc.player.distanceTo(t);
             boolean cd = mc.player.getCooldowns().getCooldownPercent(new ItemStack(Items.ENDER_PEARL), 0f) > 0f;
-            if (cd) { state = "перезарядка"; col = 0xFFFFC040; }
-            else if (d < minDist.get()) { state = String.format("цель рядом (%.0fм)", d); col = Draw.GRAY; }
-            else if (d > maxDist.get()) { state = String.format("слишком далеко (%.0fм)", d); col = 0xFFFF6A6A; }
-            else { state = String.format("готов (%.0fм)", d); col = 0xFF7CFFB0; }
+            if (cd) { state = Lang.t("перезарядка"); col = 0xFFFFC040; }
+            else if (d < minDist.get()) { state = String.format(Lang.t("цель рядом (%.0fм)"), d); col = Draw.GRAY; }
+            else if (d > maxDist.get()) { state = String.format(Lang.t("слишком далеко (%.0fм)"), d); col = 0xFFFF6A6A; }
+            else { state = String.format(Lang.t("готов (%.0fм)"), d); col = 0xFF7CFFB0; }
         }
-        String s = "Жемчуг x" + pearls + ": " + state;
+        String s = Lang.t("Жемчуг x") + pearls + ": " + state;
         int w = Draw.width(s) + 8;
         int x = sw / 2 - w / 2, y = sh / 2 + 18;
         Draw.panel(g, x, y, x + w, y + 12, Draw.bg());
@@ -310,7 +311,7 @@ public class AutoPearl extends Module {
         if (cached != null && preview.get() && t != null) {
             double[] o = new double[3];
             if (Projection.project(cached.landing.x, cached.landing.y, cached.landing.z, o)) {
-                Draw.textCentered(g, String.format("%.1f бл. от цели", cached.miss), (int) o[0], (int) o[1] - 12,
+                Draw.textCentered(g, String.format(Lang.t("%.1f бл. от цели"), cached.miss), (int) o[0], (int) o[1] - 12,
                         cached.miss <= accuracy.get() ? 0xFFB070FF : 0xFFFF5050);
             }
         }

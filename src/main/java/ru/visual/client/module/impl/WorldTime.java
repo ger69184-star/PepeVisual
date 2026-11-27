@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.Minecraft;
 import ru.visual.client.module.Category;
 import ru.visual.client.module.Module;
@@ -55,6 +56,6 @@ public class WorldTime extends Module {
 
     @Override
     public String info() {
-        return mode.is("Цикл") ? "цикл" : String.format(java.util.Locale.ROOT, "%02d:%02d", (int) hour.get().doubleValue(), (int) Math.round((hour.get() % 1) * 60));
+        return mode.is("Цикл") ? Lang.t("цикл") : String.format(java.util.Locale.ROOT, "%02d:%02d", (int) hour.get().doubleValue(), (int) Math.round((hour.get() % 1) * 60));
     }
 }

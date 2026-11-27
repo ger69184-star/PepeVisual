@@ -80,5 +80,14 @@
   "key.pepevisual.bind.totempops": "PV: Счётчик тотемов",
   "key.pepevisual.bind.chattimestamps": "PV: Время в чате",
   "key.pepevisual.bind.lowhealth": "PV: Мало здоровья",
-  "key.pepevisual.bind.hotbarview": "PV: Хотбар игрока"
+  "key.pepevisual.bind.hotbarview": "PV: Хотбар игрока",
+  "key.pepevisual.bind.aimalert": "PV: Кто целится",
+  "key.pepevisual.bind.killeffects": "PV: Эффекты убийства",
+  "key.pepevisual.bind.combohud": "PV: Комбо и дальность",
+  "key.pepevisual.bind.autototem": "PV: Автототем",
+  "key.pepevisual.bind.autoarmor": "PV: Автоброня",
+  "key.pepevisual.bind.antiafk": "PV: Анти-АФК",
+  "key.pepevisual.bind.menu": "PV: Настройки меню",
+  "key.pepevisual.bind.fasttransparency": "PV: Быстрая прозрачность",
+  "key.pepevisual.bind.novsync": "PV: Без VSync"
 }

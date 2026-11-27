@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -49,11 +50,11 @@ public class InfoHud extends HudModule implements Config.DefaultOn {
         if (nether.get()) {
             boolean inNether = mc.level.dimension() == Level.NETHER;
             double k = inNether ? 8.0 : 1.0 / 8.0;
-            lines.add(String.format(Locale.ROOT, "%s: %.1f %.1f", inNether ? "Верхний мир" : "Незер", x * k, z * k));
+            lines.add(String.format(Locale.ROOT, "%s: %.1f %.1f", inNether ? Lang.t("Верхний мир") : Lang.t("Незер"), x * k, z * k));
         }
-        if (facing.get()) lines.add("Смотришь: " + facingName(mc.player.getDirection()) + String.format(Locale.ROOT, " (%.0f°)", net.minecraft.util.Mth.wrapDegrees(mc.player.getYRot())));
-        if (speed.get()) lines.add(String.format(Locale.ROOT, "Скорость: %.1f б/с", bps));
-        if (ping.get()) lines.add("Пинг: " + PlayerUtil.ping(mc) + " мс");
+        if (facing.get()) lines.add(Lang.t("Смотришь: ") + facingName(mc.player.getDirection()) + String.format(Locale.ROOT, " (%.0f°)", net.minecraft.util.Mth.wrapDegrees(mc.player.getYRot())));
+        if (speed.get()) lines.add(String.format(Locale.ROOT, Lang.t("Скорость: %.1f б/с"), bps));
+        if (ping.get()) lines.add(Lang.t("Пинг: ") + PlayerUtil.ping(mc) + Lang.t(" мс"));
         if (cps.get()) lines.add("CPS: " + Cps.left() + " | " + Cps.right());
 
         if (lines.isEmpty()) return;
@@ -79,12 +80,12 @@ public class InfoHud extends HudModule implements Config.DefaultOn {
 
     private static String facingName(net.minecraft.core.Direction d) {
         return switch (d) {
-            case NORTH -> "Север (-Z)";
-            case SOUTH -> "Юг (+Z)";
-            case WEST -> "Запад (-X)";
-            case EAST -> "Восток (+X)";
-            case UP -> "Вверх";
-            case DOWN -> "Вниз";
+            case NORTH -> Lang.t("Север (-Z)");
+            case SOUTH -> Lang.t("Юг (+Z)");
+            case WEST -> Lang.t("Запад (-X)");
+            case EAST -> Lang.t("Восток (+X)");
+            case UP -> Lang.t("Вверх");
+            case DOWN -> Lang.t("Вниз");
         };
     }
 }

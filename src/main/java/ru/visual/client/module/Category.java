@@ -7,7 +7,9 @@ public enum Category {
     HUD("HUD"),
     NORENDER("NoRender"),
     UTILITY("Utility"),
-    OPTIMIZATION("Optimization");
+    OPTIMIZATION("Optimization"),
+    /** Оформление и настройки самого меню: масштаб, тема, цвета, язык. */
+    MENU("Menu");
 
     public final String title;
 

@@ -22,6 +22,8 @@ import ru.visual.client.setting.ModeSetting;
 import ru.visual.client.setting.NumSetting;
 import ru.visual.client.setting.Setting;
 import ru.visual.client.util.Draw;
+import ru.visual.client.util.Lang;
+import ru.visual.client.util.Theme;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,16 +39,16 @@ import java.util.Set;
  * Окно всегда влезает в экран при любом масштабе интерфейса (раньше 7 колонок не помещались и первая уезжала за край).
  */
 public class ClickGuiScreen extends Screen {
-    private static final int TOP = 32, HEAD = 30, ROW = 16, ROW_TALL = 24, GAP = 6;
+    private static final int TOP = 32, ROW = 16, ROW_TALL = 24, GAP = 6;
 
-    private static final int C_WINDOW = 0xF2111118;
-    private static final int C_SIDEBAR = 0x50000000;
-    private static final int C_CARD = 0xFF1A1A24;
-    private static final int C_CARD_HOVER = 0xFF23232F;
-    private static final int C_FIELD = 0xFF2A2A38;
-    private static final int C_TEXT = 0xFFE8E8F0;
-    private static final int C_MUTED = 0xFF8A8A9A;
-    private static final int C_DIM = 0xFF6A6A78;
+    /** Цвета берутся из темы меню (вкладка Menu) каждый кадр. */
+    private Theme.Palette pal = Theme.palette();
+    private int C_WINDOW, C_SIDEBAR, C_CARD, C_CARD_HOVER, C_FIELD, C_TEXT, C_MUTED, C_DIM;
+    /** Высота шапки карточки: 30 с описанием, 20 без. */
+    private int HEAD = 30;
+    /** Пользовательский масштаб меню и размеры экрана в координатах окна. */
+    private float userScale = 1f;
+    private int vw, vh;
 
     /** Выбранная вкладка и раскрытые карточки сохраняются между открытиями меню. */
     private static Category selected = Category.VISUAL;
@@ -86,15 +88,47 @@ public class ClickGuiScreen extends Screen {
     // ---------------------------------------------------------------- координаты (анимация открытия масштабирует окно)
 
     private double localX(double x) {
-        return (x - this.width / 2.0) / scale + this.width / 2.0;
+        return (x - this.width / 2.0) / scale + vw / 2.0;
     }
 
     private double localY(double y) {
-        return (y - this.height / 2.0 - offY) / scale + this.height / 2.0;
+        return (y - this.height / 2.0 - offY) / scale + vh / 2.0;
     }
 
     private float approach(float cur, float target, float speed) {
-        return cur + (target - cur) * Math.min(1f, dt * speed);
+        return cur + (target - cur) * Math.min(1f, dt * speed * Theme.animSpeed());
+    }
+
+    private void click() {
+        if (Theme.clickSound() && this.minecraft != null) {
+            this.minecraft.getSoundManager().play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0f, 0.35f));
+        }
+    }
+
+    /** Подсветка поверх фона: белая на тёмных темах, чёрная на светлой. */
+    private int over(int alpha) {
+        return (alpha << 24) | pal.overlay();
+    }
+
+    private void updatePalette() {
+        pal = Theme.palette();
+        int a = Theme.menuAlpha();
+        C_WINDOW = (a << 24) | (pal.window() & 0xFFFFFF);
+        C_SIDEBAR = pal.sidebar();
+        C_CARD = pal.card();
+        C_CARD_HOVER = pal.cardHover();
+        C_FIELD = pal.field();
+        C_TEXT = pal.text();
+        C_MUTED = pal.muted();
+        C_DIM = pal.dim();
+        HEAD = Theme.descriptions() ? 30 : 20;
+    }
+
+    /** Изменить масштаб меню (кнопки - / + и Ctrl + колесо). */
+    private void changeScale(double delta) {
+        if (Theme.menuScale == null) return;
+        Theme.menuScale.set(Theme.menuScale.get() + delta);
+        ModuleManager.markDirty();
     }
 
     // ---------------------------------------------------------------- отрисовка
@@ -103,7 +137,7 @@ public class ClickGuiScreen extends Screen {
     public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float delta) {
         // Без ванильной "майнкрафтовской" подложки: только размытие мира, затемнение рисуем сами
         if (this.minecraft.level == null) super.renderBackground(g, mouseX, mouseY, delta);
-        else this.renderBlurredBackground(g);
+        else if (Theme.blur()) this.renderBlurredBackground(g);
     }
 
     @Override
@@ -115,15 +149,21 @@ public class ClickGuiScreen extends Screen {
         }
         dt = Math.min(0.1f, (now - lastFrame) / 1000f);
         lastFrame = now;
-        float t = Mth.clamp((now - openTime) / 220f, 0f, 1f);
+        float t = Mth.clamp((now - openTime) / (220f / Theme.animSpeed()), 0f, 1f);
         float e = 1f - (1f - t) * (1f - t) * (1f - t);
 
         hits.clear();
         tooltip = null;
 
-        g.fillGradient(0, 0, this.width, this.height, ((int) (0x70 * e) << 24) | 0x0A0614, ((int) (0xA8 * e) << 24) | 0x040208);
+        updatePalette();
+        float dimK = Theme.dim();
+        g.fillGradient(0, 0, this.width, this.height, (Math.min(255, (int) (0x70 * e * dimK)) << 24) | 0x0A0614,
+                (Math.min(255, (int) (0xA8 * e * dimK)) << 24) | 0x040208);
 
-        scale = 0.92f + 0.08f * e;
+        userScale = Theme.menuScale();
+        vw = Math.round(this.width / userScale);
+        vh = Math.round(this.height / userScale);
+        scale = (0.92f + 0.08f * e) * userScale;
         offY = (1f - e) * 12f;
         int lmx = (int) Math.floor(localX(mouseX)), lmy = (int) Math.floor(localY(mouseY));
 
@@ -132,7 +172,7 @@ public class ClickGuiScreen extends Screen {
             g.pose().pushMatrix();
             g.pose().translate(this.width / 2f, this.height / 2f + offY);
             g.pose().scale(scale, scale);
-            g.pose().translate(-this.width / 2f, -this.height / 2f);
+            g.pose().translate(-vw / 2f, -vh / 2f);
             drawWindow(g, lmx, lmy, now);
             g.pose().popMatrix();
             if (tooltip != null) drawTooltip(g, mouseX, mouseY);
@@ -143,15 +183,18 @@ public class ClickGuiScreen extends Screen {
 
     private void drawWindow(GuiGraphics g, int mx, int my, long now) {
         int accent = Draw.accent();
-        int W = Math.min(this.width - 16, 600), H = Math.min(this.height - 16, 370);
-        int x0 = (this.width - W) / 2, y0 = (this.height - H) / 2;
+        int W = Math.min(vw - 16, Theme.menuWidth()), H = Math.min(vh - 16, Theme.menuHeight());
+        int x0 = (vw - W) / 2, y0 = (vh - H) / 2;
         int x1 = x0 + W, y1 = y0 + H;
+        int wr = Theme.menuRadius();
 
         // тень и мягкое свечение цветом темы
-        Draw.shadow(g, x0, y0, x1, y1, 16, 0xA0000000);
-        Draw.shadow(g, x0, y0, x1, y1, 8, Draw.withAlpha(accent, 0x28));
-        Draw.round(g, x0, y0, x1, y1, 9, C_WINDOW);
-        Draw.roundGradient(g, x0, y0, x1, y0 + TOP, 9, Draw.withAlpha(accent, 0x30), 0x00000000);
+        if (Theme.shadows()) {
+            Draw.shadow(g, x0, y0, x1, y1, 16, pal.light() ? 0x50000000 : 0xA0000000);
+            Draw.shadow(g, x0, y0, x1, y1, 8, Draw.withAlpha(accent, 0x28));
+        }
+        Draw.round(g, x0, y0, x1, y1, wr, C_WINDOW);
+        Draw.roundGradient(g, x0, y0, x1, y0 + TOP, wr, Draw.withAlpha(accent, pal.light() ? 0x22 : 0x30), 0x00000000);
         hLine(g, x0 + 10, x1 - 10, y0 + TOP - 1, accent);
 
         // ----- шапка: название слева, лягушонок ровно по центру, поиск справа
@@ -171,7 +214,7 @@ public class ClickGuiScreen extends Screen {
 
         int sw = Math.min(140, W / 4), sx2 = x1 - 10, sx1 = sx2 - sw, sy1 = y0 + 8, sy2 = y0 + 24;
         boolean sHover = in(mx, my, sx1, sy1, sx2, sy2);
-        Draw.round(g, sx1, sy1, sx2, sy2, 6, sHover ? 0xFF30303F : C_FIELD);
+        Draw.round(g, sx1, sy1, sx2, sy2, 6, sHover ? pal.fieldHover() : C_FIELD);
         if (!search.isEmpty()) Draw.roundOutline(g, sx1, sy1, sx2, sy2, 6, Draw.withAlpha(accent, 0xA0));
         if (search.isEmpty()) {
             Draw.text(g, "Поиск...", sx1 + 7, sy1 + 4, C_DIM);
@@ -183,6 +226,8 @@ public class ClickGuiScreen extends Screen {
         }
         hits.add(new Hit(sx1, sy1, sx2, sy2, null, () -> search = "", null));
         if (sHover) tooltip = "Просто начни печатать - поиск по названию и описанию всех функций. ПКМ или Esc - очистить.";
+
+        drawHeaderButtons(g, mx, my, accent, cx, sx1, y0);
 
         // ----- боковая панель с разделами
         int sbW = W >= 480 ? 122 : 96;
@@ -206,13 +251,13 @@ public class ClickGuiScreen extends Screen {
             Category c = cats[i];
             int ty = ty0 + i * tabH;
             boolean hov = in(mx, my, sbX1 + 4, ty, sbX2 - 4, ty + tabH - 2);
-            if (hov && c != selected) Draw.round(g, sbX1 + 4, ty, sbX2 - 4, ty + tabH - 2, 5, 0x14FFFFFF);
+            if (hov && c != selected) Draw.round(g, sbX1 + 4, ty, sbX2 - 4, ty + tabH - 2, 5, over(0x14));
             List<Module> mods = ModuleManager.byCategory(c);
             int on = 0;
             for (Module m : mods) if (m.isEnabled()) on++;
             int textY = ty + (tabH - 2 - 8) / 2;
             String count = on + "/" + mods.size();
-            Draw.text(g, Draw.trim(c.title, sbW - 30 - Draw.width(count)), sbX1 + 11, textY, c == selected && !searching ? C_TEXT : 0xFFA4A4B4);
+            Draw.text(g, Draw.trim(c.title, sbW - 30 - Draw.width(count)), sbX1 + 11, textY, c == selected && !searching ? C_TEXT : pal.tab());
             Draw.textRight(g, count, sbX2 - 9, textY, on > 0 ? Draw.withAlpha(accent, 0xE0) : C_DIM);
             final Category fc = c;
             hits.add(new Hit(sbX1 + 4, ty, sbX2 - 4, ty + tabH - 2, () -> {
@@ -237,20 +282,24 @@ public class ClickGuiScreen extends Screen {
         contentX2 = x1 - 8;
         contentY1 = y0 + TOP + 6;
         contentY2 = y1 - 18;
-        String hint = binding != null ? "Нажми клавишу для " + binding.name + "   Esc - отмена   Delete - сбросить"
+        String hint = binding != null ? Lang.t("Нажми клавишу для ") + binding.name + Lang.t("   Esc - отмена   Delete - сбросить")
                 : "ЛКМ - вкл/выкл   ПКМ - настройки   ПКМ по настройке - по умолчанию   печатай - поиск";
-        Draw.text(g, Draw.trim(hint, contentX2 - contentX1), contentX1 + 2, y1 - 13, binding != null ? 0xFFFFE070 : C_DIM);
+        Draw.text(g, Draw.trim(hint, contentX2 - contentX1), contentX1 + 2, y1 - 13, binding != null ? (pal.light() ? 0xFFB07800 : 0xFFFFE070) : C_DIM);
 
         if (!searching && selected == Category.OPTIMIZATION) {
             drawPresets(g, mx, my, accent);
             contentY1 += 24;
+        }
+        if (!searching && selected == Category.MENU) {
+            contentY1 += drawMenuPresets(g, mx, my, accent);
         }
 
         List<Module> mods = new ArrayList<>();
         if (searching) {
             String q = search.toLowerCase(Locale.ROOT);
             for (Module m : ModuleManager.MODULES) {
-                if (m.name.toLowerCase(Locale.ROOT).contains(q) || m.description.toLowerCase(Locale.ROOT).contains(q)) mods.add(m);
+                if (m.name.toLowerCase(Locale.ROOT).contains(q) || m.description.toLowerCase(Locale.ROOT).contains(q)
+                        || Lang.t(m.description).toLowerCase(Locale.ROOT).contains(q)) mods.add(m);
             }
         } else {
             mods.addAll(ModuleManager.byCategory(selected));
@@ -302,8 +351,9 @@ public class ClickGuiScreen extends Screen {
             int barH = Math.max(18, trackH * trackH / (total));
             int barY = contentY1 + (int) ((trackH - barH) * (sc[0] / maxScroll));
             Draw.round(g, x1 - 5, barY, x1 - 3, barY + barH, 1, Draw.withAlpha(accent, 0x90));
-            if (off > 1) g.fillGradient(contentX1, contentY1, contentX2, contentY1 + 8, C_WINDOW, 0x00111118);
-            if (off < maxScroll - 1) g.fillGradient(contentX1, contentY2 - 8, contentX2, contentY2, 0x00111118, C_WINDOW);
+            int clear = C_WINDOW & 0xFFFFFF;
+            if (off > 1) g.fillGradient(contentX1, contentY1, contentX2, contentY1 + 8, C_WINDOW, clear);
+            if (off < maxScroll - 1) g.fillGradient(contentX1, contentY2 - 8, contentX2, contentY2, clear, C_WINDOW);
         }
 
         if (dropdown != null && !dropdownSeen) dropdown = null; // строка уехала из вида - список закрываем
@@ -327,13 +377,135 @@ public class ClickGuiScreen extends Screen {
             int bx1 = contentX1 + i * (bw + gap), bx2 = bx1 + bw, by1 = contentY1, by2 = contentY1 + 18;
             boolean hov = in(mx, my, bx1, by1, bx2, by2);
             boolean active = state == i;
-            Draw.round(g, bx1, by1, bx2, by2, 6, active ? Draw.withAlpha(accent, 0x90) : hov ? 0xFF2C2C3A : C_CARD);
+            Draw.round(g, bx1, by1, bx2, by2, 6, active ? Draw.withAlpha(accent, 0x90) : hov ? C_CARD_HOVER : C_CARD);
             if (!active && hov) Draw.roundOutline(g, bx1, by1, bx2, by2, 6, Draw.withAlpha(accent, 0x70));
             Draw.textCentered(g, Draw.trim(names[i], bw - 8), (bx1 + bx2) / 2, by1 + 5, active ? 0xFFFFFFFF : C_TEXT);
             final int preset = i;
             hits.add(new Hit(bx1, by1, bx2, by2, () -> applyPreset(tweaks, preset), null, null));
             if (hov) tooltip = tips[i];
         }
+    }
+
+    /** Цвета акцента для быстрого выбора во вкладке Menu (последний - радуга). */
+    private static final int[] SWATCHES = {0x8A63FF, 0x3D8BFF, 0x22D3EE, 0x2DD4A0, 0x84CC16, 0xFACC15, 0xFF8A3D, 0xFF4D5E, 0xFF5FD2, 0xE6E6EE, -1};
+    private static final String[] SWATCH_NAMES = {"Фиолетовый", "Синий", "Голубой", "Бирюзовый", "Лаймовый", "Жёлтый", "Оранжевый", "Красный", "Розовый", "Белый", "Радуга"};
+
+    /** Вкладка Menu: быстрый выбор темы окна и цвета акцента. Возвращает занятую высоту. */
+    private int drawMenuPresets(GuiGraphics g, int mx, int my, int accent) {
+        int labelW = Math.max(Draw.width("Тема"), Draw.width("Цвет")) + 10;
+        int y = contentY1;
+        Draw.text(g, "Тема", contentX1 + 2, y + 5, C_MUTED);
+        int n = Theme.THEMES.length, gap = 4;
+        int ax = contentX1 + labelW;
+        int bw = (contentX2 - ax - gap * (n - 1)) / n;
+        for (int i = 0; i < n; i++) {
+            String name = Theme.THEMES[i];
+            int bx1 = ax + i * (bw + gap), bx2 = bx1 + bw, by2 = y + 18;
+            boolean cur = Theme.menuTheme != null && Theme.menuTheme.is(name);
+            boolean hov = in(mx, my, bx1, y, bx2, by2);
+            Draw.round(g, bx1, y, bx2, by2, 6, cur ? Draw.withAlpha(accent, 0x70) : hov ? C_CARD_HOVER : C_CARD);
+            if (cur || hov) Draw.roundOutline(g, bx1, y, bx2, by2, 6, Draw.withAlpha(accent, cur ? 0xC0 : 0x70));
+            // кружок с цветом окна этой темы
+            int sw = THEME_PREVIEW[i];
+            Draw.circle(g, bx1 + 5, y + 5, 8, sw);
+            Draw.roundOutline(g, bx1 + 4, y + 4, bx1 + 14, y + 14, 5, 0x40808080);
+            Draw.text(g, Draw.trim(name, bw - 22), bx1 + 17, y + 5, cur ? pal.nameOn() : C_TEXT);
+            hits.add(new Hit(bx1, y, bx2, by2, () -> {
+                if (Theme.menuTheme != null) Theme.menuTheme.set(name);
+                click();
+            }, null, null));
+            if (hov) tooltip = Lang.t("Тема окна меню: ") + Lang.t(name);
+        }
+
+        y += 24;
+        Draw.text(g, "Цвет", contentX1 + 2, y + 5, C_MUTED);
+        int cur = Theme.accent != null && !Theme.accent.rainbow ? Theme.accent.argb() & 0xFFFFFF : -2;
+        int d = 14;
+        int step = Math.max(d + 4, Math.min(26, (contentX2 - ax) / SWATCHES.length));
+        for (int i = 0; i < SWATCHES.length; i++) {
+            int col = SWATCHES[i];
+            int cx1 = ax + i * step, cy1 = y + 2;
+            boolean hov = in(mx, my, cx1 - 2, cy1 - 2, cx1 + d + 2, cy1 + d + 2);
+            boolean selectedSw = col == -1 ? Theme.accent != null && Theme.accent.rainbow : near(cur, col);
+            if (selectedSw || hov) Draw.circle(g, cx1 - 2, cy1 - 2, d + 4, selectedSw ? Draw.withAlpha(pal.nameOn(), 0xE0) : over(0x40));
+            if (col == -1) {
+                for (int k = 0; k < d; k++) g.fill(cx1 + k, cy1 + 3, cx1 + k + 1, cy1 + d - 3, Draw.rainbow(0, k / (float) d));
+                Draw.circle(g, cx1 + 3, cy1 + 3, d - 6, Draw.rainbow(0.3, 0));
+            } else {
+                Draw.circle(g, cx1, cy1, d, 0xFF000000 | col);
+            }
+            final int fc = col;
+            hits.add(new Hit(cx1 - 2, cy1 - 2, cx1 + d + 2, cy1 + d + 2, () -> setAccent(fc), null, null));
+            if (hov) tooltip = Lang.t(SWATCH_NAMES[i]) + "\n" + Lang.t("Цвет акцента меню и HUD. Точный оттенок - полоса \"Цвет темы\" в Interface.");
+        }
+        return 48;
+    }
+
+    /** Цвет окна каждой темы для кружка-превью (в том же порядке, что Theme.THEMES). */
+    private static final int[] THEME_PREVIEW = {0xFF1A1A24, 0xFF15203A, 0xFF000000, 0xFF33373E, 0xFFF3F4F8};
+
+    private static boolean near(int a, int b) {
+        if (a < 0) return false;
+        return Math.abs(((a >> 16) & 255) - ((b >> 16) & 255)) < 12 && Math.abs(((a >> 8) & 255) - ((b >> 8) & 255)) < 12 && Math.abs((a & 255) - (b & 255)) < 12;
+    }
+
+    private void setAccent(int rgb) {
+        if (Theme.accent == null) return;
+        if (rgb == -1) Theme.accent.rainbow = true;
+        else Theme.accent.setRgb(rgb);
+        // цвет применяется только при включённом Interface
+        if (Theme.owner != null && !Theme.owner.isEnabled()) Theme.owner.setEnabled(true);
+        click();
+    }
+
+    /** Кнопки в шапке: язык RU/EN и масштаб меню (- 100% +). Прячутся, если окно слишком узкое. */
+    private void drawHeaderButtons(GuiGraphics g, int mx, int my, int accent, int cx, int searchX1, int y0) {
+        int by1 = y0 + 8, by2 = y0 + 24;
+        int right = searchX1 - 6, left = cx + 16;
+        int pctW = Draw.width("160%") + 8;
+        int scaleW = 16 + pctW + 16;
+        int langW = Draw.width("RU") + 14;
+        int x = right;
+        if (right - scaleW >= left) {
+            // +
+            iconButton(g, x - 16, by1, x, by2, mx, my, accent, true, "Увеличить меню (или Ctrl + колесо мыши)", () -> changeScale(0.05));
+            x -= 16;
+            int px1 = x - pctW;
+            boolean hov = in(mx, my, px1, by1, x, by2);
+            String pct = Math.round(userScale * 100) + "%";
+            if (hov) Draw.round(g, px1, by1, x, by2, 5, over(0x14));
+            Draw.textCentered(g, pct, (px1 + x) / 2, by1 + 4, hov ? C_TEXT : C_MUTED);
+            hits.add(new Hit(px1, by1, x, by2, () -> {
+                if (Theme.menuScale != null) Theme.menuScale.reset();
+            }, null, null));
+            if (hov) tooltip = "Масштаб меню. ЛКМ - вернуть 100%.";
+            x = px1;
+            // -
+            iconButton(g, x - 16, by1, x, by2, mx, my, accent, false, "Уменьшить меню (или Ctrl + колесо мыши)", () -> changeScale(-0.05));
+            x -= 16 + 5;
+        }
+        if (x - langW >= left && Lang.language != null) {
+            int lx1 = x - langW;
+            boolean hov = in(mx, my, lx1, by1, x, by2);
+            Draw.round(g, lx1, by1, x, by2, 5, hov ? Draw.withAlpha(accent, 0x70) : Draw.withAlpha(accent, 0x30));
+            Draw.textCentered(g, Lang.en() ? "EN" : "RU", (lx1 + x) / 2, by1 + 4, C_TEXT);
+            hits.add(new Hit(lx1, by1, x, by2, () -> {
+                Lang.language.cycle(1);
+                click();
+            }, null, null));
+            if (hov) tooltip = Lang.en() ? "Language: English. Click - switch to Russian." : "Язык: русский. Нажми - English.";
+        }
+    }
+
+    private void iconButton(GuiGraphics g, int x1, int y1, int x2, int y2, int mx, int my, int accent, boolean plus, String tip, Runnable action) {
+        boolean hov = in(mx, my, x1, y1, x2, y2);
+        Draw.round(g, x1, y1, x2, y2, 5, hov ? Draw.withAlpha(accent, 0x70) : C_FIELD);
+        int cx = (x1 + x2) / 2, cy = (y1 + y2) / 2;
+        int col = hov ? 0xFFFFFFFF : C_TEXT;
+        g.fill(cx - 3, cy, cx + 4, cy + 1, col);
+        if (plus) g.fill(cx, cy - 3, cx + 1, cy + 4, col);
+        hits.add(new Hit(x1, y1, x2, y2, action, null, null));
+        if (hov) tooltip = tip;
     }
 
     /** 0 - всё включено, 1 - ровно "Баланс", 2 - всё выключено, -1 - своё сочетание. */
@@ -367,16 +539,16 @@ public class ClickGuiScreen extends Screen {
         if (y1 + h > windowBottom - 4) y1 = Math.max(4, ddRowTop - h + 2); // не влезает вниз - открываем вверх
         // клик мимо списка закрывает его (и больше ничего не делает)
         hits.add(new Hit(-10000, -10000, 10000, 10000, () -> dropdown = null, () -> dropdown = null, null));
-        Draw.shadow(g, x1, y1, x1 + w, y1 + h, 8, 0x90000000);
-        Draw.round(g, x1, y1, x1 + w, y1 + h, 5, 0xFA1C1C27);
+        Draw.shadow(g, x1, y1, x1 + w, y1 + h, 8, pal.light() ? 0x40000000 : 0x90000000);
+        Draw.round(g, x1, y1, x1 + w, y1 + h, 5, pal.popup());
         Draw.roundOutline(g, x1, y1, x1 + w, y1 + h, 5, Draw.withAlpha(accent, 0x90));
         for (int i = 0; i < md.modes.length; i++) {
             int iy = y1 + 2 + i * itemH;
             boolean cur = i == md.index();
             boolean hov = in(mx, my, x1 + 2, iy, x1 + w - 2, iy + itemH);
             if (cur) Draw.round(g, x1 + 2, iy, x1 + w - 2, iy + itemH, 4, Draw.withAlpha(accent, 0x60));
-            else if (hov) Draw.round(g, x1 + 2, iy, x1 + w - 2, iy + itemH, 4, 0x18FFFFFF);
-            Draw.text(g, md.modes[i], x1 + 8, iy + 3, cur || hov ? 0xFFFFFFFF : 0xFFC0C0D0);
+            else if (hov) Draw.round(g, x1 + 2, iy, x1 + w - 2, iy + itemH, 4, over(0x18));
+            Draw.text(g, md.modes[i], x1 + 8, iy + 3, cur || hov ? pal.nameOn() : pal.keyText());
             final String mode = md.modes[i];
             hits.add(new Hit(x1 + 2, iy, x1 + w - 2, iy + itemH, () -> {
                 md.set(mode);
@@ -410,48 +582,73 @@ public class ClickGuiScreen extends Screen {
         boolean headHover = in(mx, my, x, y, x + w, y + HEAD) && my >= contentY1 && my < contentY2;
         a[1] = approach(a[1], headHover ? 1 : 0, 18f);
 
+        boolean only = m.settingsOnly();
+        float on = only ? 0.35f : a[0];
+        int cr = Math.max(0, Math.min(7, Theme.menuRadius() - 2));
         int bg = Draw.mix(C_CARD, C_CARD_HOVER, a[1]);
-        bg = Draw.mix(bg, accent | 0xFF000000, 0.12f * a[0]);
-        Draw.round(g, x, y, x + w, y + h, 7, bg);
-        if (a[0] > 0.02f) Draw.roundOutline(g, x, y, x + w, y + h, 7, Draw.withAlpha(accent, (int) (0x90 * a[0])));
+        bg = Draw.mix(bg, accent | 0xFF000000, (pal.light() ? 0.08f : 0.12f) * on);
+        Draw.round(g, x, y, x + w, y + h, cr, bg);
+        if (on > 0.02f) Draw.roundOutline(g, x, y, x + w, y + h, cr, Draw.withAlpha(accent, (int) (0x90 * on)));
 
         // название и описание
-        int nameColor = Draw.mix(0xFFB8B8C8, 0xFFFFFFFF, a[0]);
-        Draw.textBold(g, Draw.trim(m.name, w - 46), x + 9, y + 6, nameColor);
-        String desc = Draw.trim(m.description, w - 46);
-        Draw.text(g, desc, x + 9, y + 17, C_MUTED);
+        int nameColor = Draw.mix(pal.nameOff(), pal.nameOn(), on);
+        int textW = only ? w - 30 : w - 46;
+        String fullDesc = Lang.t(m.description);
+        String desc = Draw.trim(fullDesc, textW);
+        if (Theme.descriptions()) {
+            Draw.textBold(g, Draw.trim(m.name, textW), x + 9, y + 6, nameColor);
+            Draw.text(g, desc, x + 9, y + 17, C_MUTED);
+        } else {
+            Draw.textBold(g, Draw.trim(m.name, textW), x + 9, y + 6, nameColor);
+        }
 
-        // переключатель
-        int swX = x + w - 32, swY = y + 9;
-        Draw.round(g, swX, swY, swX + 22, swY + 12, 6, Draw.mix(0xFF3A3A4A, accent | 0xFF000000, a[0]));
-        int knob = swX + 2 + Math.round(10 * a[0]);
-        Draw.circle(g, knob, swY + 2, 8, 0xFFFFFFFF);
+        int swY = y + (HEAD - 12) / 2;
+        if (only) {
+            // карточка-настройки: вместо переключателя стрелка раскрытия
+            int ax = x + w - 18, ay = swY + 6;
+            for (int k = 0; k < 4; k++) {
+                int yy = expanded.contains(m) ? ay + 1 - k : ay - 2 + k;
+                g.fill(ax - 3 + k, yy, ax + 4 - k, yy + 1, Draw.mix(C_MUTED, accent | 0xFF000000, a[1]));
+            }
+        } else {
+            // переключатель
+            int swX = x + w - 32;
+            Draw.round(g, swX, swY, swX + 22, swY + 12, 6, Draw.mix(pal.switchOff(), accent | 0xFF000000, a[0]));
+            int knob = swX + 2 + Math.round(10 * a[0]);
+            Draw.circle(g, knob, swY + 2, 8, 0xFFFFFFFF);
+        }
 
         if (headHover) {
-            tooltip = (desc.equals(m.description) ? "" : m.description + "\n") + (expanded.contains(m) ? "ПКМ - свернуть настройки" : "ПКМ - настройки и клавиша");
+            String extra = only ? (expanded.contains(m) ? "ЛКМ - свернуть настройки" : "ЛКМ - открыть настройки")
+                    : (expanded.contains(m) ? "ПКМ - свернуть настройки" : "ПКМ - настройки и клавиша");
+            tooltip = (desc.equals(fullDesc) && Theme.descriptions() ? "" : fullDesc + "\n") + Lang.t(extra);
         }
-        hits.add(new Hit(x, Math.max(y, contentY1), x + w, Math.min(y + HEAD, contentY2), m::toggle, () -> {
+        Runnable expand = () -> {
             if (!expanded.remove(m)) expanded.add(m);
-        }, null));
+        };
+        hits.add(new Hit(x, Math.max(y, contentY1), x + w, Math.min(y + HEAD, contentY2), only ? expand : () -> {
+            m.toggle();
+            click();
+        }, expand, null));
 
         if (a[2] <= 0.01f) return;
 
         // ----- настройки (раскрываются плавно)
         int cardBottom = y + h;
         g.enableScissor(x, y + HEAD - 1, x + w, cardBottom);
-        g.fill(x + 8, y + HEAD - 1, x + w - 8, y + HEAD, 0x16FFFFFF);
+        g.fill(x + 8, y + HEAD - 1, x + w - 8, y + HEAD, over(0x16));
         int rx1 = x + 10, rx2 = x + w - 10;
         int ry = y + HEAD + 2;
 
         // клавиша
         {
             boolean hov = rowHover(mx, my, x, ry, w, ROW, cardBottom);
-            if (hov) Draw.round(g, x + 4, ry, x + w - 4, ry + ROW, 4, 0x10FFFFFF);
+            if (hov) Draw.round(g, x + 4, ry, x + w - 4, ry + ROW, 4, over(0x10));
             String keyName = binding == m ? "..." : ModuleManager.bindName(m);
             int pw = Draw.width(keyName) + 12;
             Draw.text(g, "Клавиша", rx1, ry + 4, C_TEXT);
             Draw.round(g, rx2 - pw, ry + 2, rx2, ry + ROW - 2, 4, binding == m ? Draw.withAlpha(accent, 0xB0) : C_FIELD);
-            Draw.textCentered(g, keyName, rx2 - pw / 2, ry + 4, binding == m ? 0xFFFFFFFF : 0xFFD0D0E0);
+            Draw.textCentered(g, keyName, rx2 - pw / 2, ry + 4, binding == m ? 0xFFFFFFFF : pal.keyText());
             if (rowVisible(ry, ROW, cardBottom)) {
                 hits.add(new Hit(x, ry, x + w, ry + ROW, () -> binding = m, () -> ModuleManager.setBind(m, -1), null));
             }
@@ -464,14 +661,14 @@ public class ClickGuiScreen extends Screen {
             int rh = rowHeight(s);
             boolean hov = rowHover(mx, my, x, ry, w, rh, cardBottom);
             boolean vis = rowVisible(ry, rh, cardBottom);
-            if (hov) Draw.round(g, x + 4, ry, x + w - 4, ry + rh, 4, 0x10FFFFFF);
+            if (hov) Draw.round(g, x + 4, ry, x + w - 4, ry + rh, 4, over(0x10));
             float[] sa = setAnim.computeIfAbsent(s, k -> new float[]{k instanceof BoolSetting b && b.get() ? 1 : 0});
 
             if (s instanceof BoolSetting b) {
                 sa[0] = approach(sa[0], b.get() ? 1 : 0, 16f);
                 Draw.text(g, Draw.trim(b.name, rx2 - rx1 - 24), rx1, ry + 4, Draw.mix(C_MUTED, C_TEXT, sa[0]));
                 int tx = rx2 - 16, tyy = ry + 4;
-                Draw.round(g, tx, tyy, tx + 16, tyy + 8, 4, Draw.mix(0xFF3A3A4A, accent | 0xFF000000, sa[0]));
+                Draw.round(g, tx, tyy, tx + 16, tyy + 8, 4, Draw.mix(pal.switchOff(), accent | 0xFF000000, sa[0]));
                 Draw.circle(g, tx + 1 + Math.round(8 * sa[0]), tyy + 1, 6, 0xFFFFFFFF);
                 if (vis) hits.add(new Hit(x, ry, x + w, ry + rh, b::toggle, () -> b.set(b.def), null));
             } else if (s instanceof NumSetting n) {
@@ -479,13 +676,13 @@ public class ClickGuiScreen extends Screen {
                 sa[0] = approach(sa[0], f, 20f);
                 String val = n.display();
                 Draw.text(g, Draw.trim(n.name, rx2 - rx1 - Draw.width(val) - 8), rx1, ry + 3, C_TEXT);
-                Draw.textRight(g, val, rx2, ry + 3, Draw.mix(accent | 0xFF000000, 0xFFFFFFFF, 0.45f));
+                Draw.textRight(g, val, rx2, ry + 3, Draw.mix(accent | 0xFF000000, pal.nameOn(), 0.45f));
                 int ty1 = ry + 15;
                 Draw.round(g, rx1, ty1, rx2, ty1 + 3, 1, C_FIELD);
                 int fx = rx1 + Math.round((rx2 - rx1) * sa[0]);
                 Draw.round(g, rx1, ty1, Math.max(rx1 + 2, fx), ty1 + 3, 1, accent | 0xFF000000);
                 if (hov) Draw.circle(g, fx - 5, ty1 - 3, 10, Draw.withAlpha(accent, 0x50));
-                Draw.circle(g, fx - 3, ty1 - 1, 6, 0xFFFFFFFF);
+                Draw.circle(g, fx - 3, ty1 - 1, 6, pal.light() ? accent | 0xFF000000 : 0xFFFFFFFF);
                 if (vis) {
                     final int a1 = rx1, a2 = rx2;
                     Drag d = mouseX -> {
@@ -501,12 +698,12 @@ public class ClickGuiScreen extends Screen {
                 Draw.text(g, Draw.trim(md.name, rx2 - rx1 - pw - 6), rx1, ry + 4, C_TEXT);
                 boolean open = dropdown == md;
                 Draw.round(g, rx2 - pw - 8, ry + 2, rx2, ry + rh - 2, 4, Draw.withAlpha(accent, open ? 0x80 : hov ? 0x60 : 0x38));
-                Draw.textCentered(g, shown, rx2 - 8 - pw / 2, ry + 4, 0xFFFFFFFF);
+                Draw.textCentered(g, shown, rx2 - 8 - pw / 2, ry + 4, pal.nameOn());
                 // стрелка списка (рисуем сами - в шрифте может не быть символа)
                 int ax = rx2 - 8, ay = ry + rh / 2;
                 for (int k = 0; k < 3; k++) {
                     int yy = open ? ay + 1 - k : ay - 1 + k;
-                    g.fill(ax - 2 + k, yy, ax + 3 - k, yy + 1, 0xFFDDDDEE);
+                    g.fill(ax - 2 + k, yy, ax + 3 - k, yy + 1, pal.keyText());
                 }
                 if (vis) {
                     hits.add(new Hit(x, ry, x + w, ry + rh, () -> {
@@ -558,11 +755,11 @@ public class ClickGuiScreen extends Screen {
                 }
             }
             if (hov) {
-                String extra = s instanceof ModeSetting ? "\nЛКМ - выбрать из списка, ПКМ - по умолчанию (" + s.def + ")"
-                        : s instanceof ColorSetting ? "\nТяни мышью по полосе, ПКМ - радуга"
-                        : s instanceof NumSetting n2 ? "\nЗажми и тяни, ПКМ - по умолчанию (" + defText(n2) + ")"
-                        : s instanceof BoolSetting b2 ? "\nПКМ - по умолчанию (" + (b2.def ? "вкл" : "выкл") + ")" : "";
-                tooltip = s.description + extra;
+                String extra = s instanceof ModeSetting ? "\n" + Lang.t("ЛКМ - выбрать из списка, ПКМ - по умолчанию") + " (" + Lang.t(String.valueOf(s.def)) + ")"
+                        : s instanceof ColorSetting ? "\n" + Lang.t("Тяни мышью по полосе, ПКМ - радуга")
+                        : s instanceof NumSetting n2 ? "\n" + Lang.t("Зажми и тяни, ПКМ - по умолчанию") + " (" + defText(n2) + ")"
+                        : s instanceof BoolSetting b2 ? "\n" + Lang.t("ПКМ - по умолчанию") + " (" + Lang.t(b2.def ? "вкл" : "выкл") + ")" : "";
+                tooltip = Lang.t(s.description) + extra;
             }
             ry += rh;
         }
@@ -607,12 +804,12 @@ public class ClickGuiScreen extends Screen {
         if (y + h + 8 > this.height) y = my - h - 10;
         x = Math.max(4, x);
         y = Math.max(4, y);
-        Draw.shadow(g, x - 5, y - 4, x + w + 5, y + h + 3, 8, 0x80000000);
-        Draw.round(g, x - 5, y - 4, x + w + 5, y + h + 3, 5, 0xF5181822);
+        Draw.shadow(g, x - 5, y - 4, x + w + 5, y + h + 3, 8, pal.light() ? 0x40000000 : 0x80000000);
+        Draw.round(g, x - 5, y - 4, x + w + 5, y + h + 3, 5, pal.light() ? 0xF8FFFFFF : 0xF5181822);
         Draw.roundOutline(g, x - 5, y - 4, x + w + 5, y + h + 3, 5, Draw.withAlpha(Draw.accent(), 0x90));
         int yy = y;
         for (FormattedCharSequence l : lines) {
-            g.drawString(this.font, l, x, yy, 0xFFFFFFFF, false);
+            g.drawString(this.font, l, x, yy, pal.light() ? 0xFF1C1D24 : 0xFFFFFFFF, false);
             yy += 10;
         }
     }
@@ -664,6 +861,10 @@ public class ClickGuiScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double sx, double sy) {
+        if (this.minecraft.hasControlDown()) {
+            changeScale(sy > 0 ? 0.05 : -0.05);
+            return true;
+        }
         double lx = localX(mx), ly = localY(my);
         if (lx >= contentX1 - 4 && lx < contentX2 + 8 && ly >= contentY1 && ly < contentY2) {
             String key = search.isEmpty() ? selected.name() : "#search";

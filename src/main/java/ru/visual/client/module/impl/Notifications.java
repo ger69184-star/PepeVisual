@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -52,7 +53,7 @@ public class Notifications extends HudModule implements Config.DefaultOn {
                 long age = now - n.time();
                 // Выезд справа (200 мс) и уезд обратно в конце
                 double slide = age < 200 ? 1 - age / 200.0 : age > life ? Math.min(1, (age - life) / 300.0) : 0;
-                String text = n.text() + (n.on() ? " §aвключён" : " §cвыключен");
+                String text = n.text() + (n.on() ? Lang.t(" §aвключён") : Lang.t(" §cвыключен"));
                 int tw = Draw.width(text) + 14;
                 int x2 = w - 4 + ox() + (int) (slide * (tw + 8));
                 int x1 = x2 - tw;

@@ -76,7 +76,7 @@ public final class Draw {
     }
 
     public static Component comp(String s, boolean bold) {
-        MutableComponent c = Component.literal(s);
+        MutableComponent c = Component.literal(Lang.t(s));
         if (!Theme.smoothFont()) return bold ? c.withStyle(net.minecraft.ChatFormatting.BOLD) : c;
         return c.setStyle(bold ? BOLD[scale()] : UI[scale()]);
     }
@@ -91,6 +91,7 @@ public final class Draw {
 
     public static void text(GuiGraphics g, String s, int x, int y, int color) {
         if (s == null) return;
+        s = Lang.t(s);
         if (Theme.smoothFont()) g.drawString(font(), comp(s), x, y, color, shadow());
         else g.drawString(font(), s, x, y, color, shadow());
         track(x, y, x + width(s), y + 9);
@@ -98,11 +99,13 @@ public final class Draw {
 
     /** Жирный текст (заголовки). */
     public static void textBold(GuiGraphics g, String s, int x, int y, int color) {
+        s = Lang.t(s);
         g.drawString(font(), comp(s, true), x, y, color, shadow());
         track(x, y, x + widthBold(s), y + 9);
     }
 
     public static int widthBold(String s) {
+        s = Lang.t(s);
         return font().width(comp(s, true));
     }
 
@@ -116,11 +119,13 @@ public final class Draw {
 
     public static int width(String s) {
         if (s == null) return 0;
+        s = Lang.t(s);
         return Theme.smoothFont() ? font().width(comp(s)) : font().width(s);
     }
 
     /** Обрезает строку с многоточием под ширину. */
     public static String trim(String s, int maxWidth) {
+        s = Lang.t(s);
         if (width(s) <= maxWidth) return s;
         while (s.length() > 1 && width(s + "…") > maxWidth) s = s.substring(0, s.length() - 1);
         return s + "…";

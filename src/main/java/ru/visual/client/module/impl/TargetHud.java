@@ -1,5 +1,6 @@
 package ru.visual.client.module.impl;
 
+import ru.visual.client.util.Lang;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -94,9 +95,9 @@ public class TargetHud extends HudModule implements Config.DefaultOn {
             Draw.rect(g, bx1, by + 3, bx1 + (int) (full * fa), by + 5, 0xFFFFD700);
         }
 
-        String info = (int) mc.player.distanceTo(t) + " м";
+        String info = (int) mc.player.distanceTo(t) + Lang.t(" м");
         String armor = HotbarView.armorSummary(t);
-        if (armor != null) info += "   броня " + armor;
+        if (armor != null) info += Lang.t("   броня ") + armor;
         Draw.text(g, info, tx, y + 26, Draw.GRAY);
 
         if (items.get()) {
