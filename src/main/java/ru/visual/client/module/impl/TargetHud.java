@@ -111,4 +111,9 @@ public class TargetHud extends HudModule implements Config.DefaultOn {
             }
         }
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        last = null;
+    }
 }

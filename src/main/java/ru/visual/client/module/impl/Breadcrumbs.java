@@ -2,7 +2,6 @@ package ru.visual.client.module.impl;
 
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import ru.visual.client.module.Category;
@@ -20,7 +19,7 @@ public class Breadcrumbs extends Module {
     private final ColorSetting color = add(new ColorSetting("Цвет", "Цвет линии. ПКМ - радужная.", 0x8A63FF));
 
     private final ArrayDeque<Vec3> points = new ArrayDeque<>();
-    private ResourceKey<Level> dim;
+    private Level world;
 
     public Breadcrumbs() {
         super("Breadcrumbs", "Рисует линию по пути, который ты прошёл, - чтобы не заблудиться в пещере или по дороге домой.", Category.VISUAL);
@@ -42,8 +41,8 @@ public class Breadcrumbs extends Module {
             points.clear();
             return;
         }
-        if (dim != mc.level.dimension()) {
-            dim = mc.level.dimension();
+        if (world != mc.level) { // смена измерения или сервера/лобби (на FunTime - без смены измерения)
+            world = mc.level;
             points.clear();
         }
         Vec3 p = mc.player.position().add(0, 0.1, 0);
@@ -71,5 +70,11 @@ public class Breadcrumbs extends Module {
             prev = p;
             i++;
         }
+    }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        points.clear();
+        world = null;
     }
 }

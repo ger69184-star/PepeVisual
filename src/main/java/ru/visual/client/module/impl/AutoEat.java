@@ -157,4 +157,14 @@ public class AutoEat extends Module {
         }
         return best;
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        if (eatingSlot >= 0 && mc.options != null) Keys.release(mc, mc.options.keyUse);
+        eatingSlot = -1;
+        previous = -1;
+        ticks = 0;
+        reactWait = -1;
+        startWait = restoreWait = 0;
+    }
 }

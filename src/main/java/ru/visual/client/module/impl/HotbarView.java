@@ -131,4 +131,9 @@ public class HotbarView extends HudModule implements Config.DefaultOn {
         if (max < 0) return null;
         return min == max ? min + "%" : Lang.t("мин ") + min + "%";
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        shown = null;
+    }
 }

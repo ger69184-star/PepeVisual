@@ -147,4 +147,10 @@ public class StorageEsp extends Module {
             }
         }
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        found = new java.util.ArrayList<>();
+        timer = 0;
+    }
 }

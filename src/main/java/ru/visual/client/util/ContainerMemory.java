@@ -4,7 +4,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.inventory.ShulkerBoxMenu;
@@ -43,7 +42,8 @@ public final class ContainerMemory {
     }
 
     private static final Map<BlockPos, Entry> MAP = new HashMap<>();
-    private static ResourceKey<Level> dim;
+    /** Мир, к которому относится память (по ссылке: на FunTime сервер/лобби меняется без смены измерения). */
+    private static Level world;
     private static BlockPos lastUsed;
     private static long lastUsedTime;
     private static int lastContainerId = -1;
@@ -73,14 +73,12 @@ public final class ContainerMemory {
 
     public static void tick(Minecraft mc) {
         if (mc.level == null || mc.player == null) {
-            MAP.clear();
-            dim = null;
-            lastContainerId = -1;
+            reset();
             return;
         }
-        if (dim != mc.level.dimension()) {
-            MAP.clear();
-            dim = mc.level.dimension();
+        if (world != mc.level) {
+            reset();
+            world = mc.level;
         }
         AbstractContainerMenu m = mc.player.containerMenu;
         if (!(mc.screen instanceof AbstractContainerScreen<?>) || !isStorageMenu(m)) {
@@ -110,6 +108,26 @@ public final class ContainerMemory {
         Entry e = new Entry(Collections.unmodifiableList(items), System.currentTimeMillis());
         MAP.put(openPos, e);
         if (openPos2 != null) MAP.put(openPos2, e);
+        if (MAP.size() > LIMIT) trim();
+    }
+
+    /** Сколько хранилищ помнить в одном мире (у каждого - копии до 54 предметов). */
+    private static final int LIMIT = 2000;
+
+    /** Слишком много - забываем те, что открывали давнее всего (редко: только при переполнении). */
+    private static void trim() {
+        List<Map.Entry<BlockPos, Entry>> list = new ArrayList<>(MAP.entrySet());
+        list.sort(java.util.Comparator.comparingLong(en -> en.getValue().time()));
+        for (int i = 0; i < list.size() - LIMIT * 9 / 10; i++) MAP.remove(list.get(i).getKey());
+    }
+
+    /** Забыть всё: вышли из мира или сменили мир/сервер. */
+    public static void reset() {
+        MAP.clear();
+        world = null;
+        lastContainerId = -1;
+        lastUsed = null;
+        openPos = openPos2 = null;
     }
 
     public static Entry get(BlockPos pos) {

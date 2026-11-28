@@ -183,27 +183,30 @@ public class ShulkerPreview extends Module implements Config.DefaultOn {
 
         var pose = g.pose();
         pose.pushMatrix();
-        pose.translate(x, y);
-        pose.scale(sc, sc);
-        int tint = p.tint;
-        Draw.shadow(g, 0, 0, w, h, 6, 0x90000000);
-        Draw.round(g, -1, -1, w + 1, h + 1, 6, Draw.withAlpha(tint, 200));
-        Draw.round(g, 0, 0, w, h, 5, 0xF0101018);
-        Draw.roundGradient(g, 0, 0, w, 13, 5, Draw.withAlpha(Draw.shade(tint, 0.7f), 235), Draw.withAlpha(Draw.shade(tint, 0.45f), 235));
-        Draw.text(g, p.title, 5, 2, Draw.WHITE);
-        if (p.items != null) {
-            int total = 0;
-            for (int i = 0; i < p.items.size(); i++) {
-                int cx = 4 + (i % cols) * 18, cy = 16 + (i / cols) * 18;
-                Draw.round(g, cx, cy, cx + 17, cy + 17, 2, 0x30FFFFFF);
-                ItemStack st = p.items.get(i);
-                if (!st.isEmpty()) {
-                    Draw.item(g, st, cx + 1, cy + 1);
-                    total++;
+        try {
+            pose.translate(x, y);
+            pose.scale(sc, sc);
+            int tint = p.tint;
+            Draw.shadow(g, 0, 0, w, h, 6, 0x90000000);
+            Draw.round(g, -1, -1, w + 1, h + 1, 6, Draw.withAlpha(tint, 200));
+            Draw.round(g, 0, 0, w, h, 5, 0xF0101018);
+            Draw.roundGradient(g, 0, 0, w, 13, 5, Draw.withAlpha(Draw.shade(tint, 0.7f), 235), Draw.withAlpha(Draw.shade(tint, 0.45f), 235));
+            Draw.text(g, p.title, 5, 2, Draw.WHITE);
+            if (p.items != null) {
+                int total = 0;
+                for (int i = 0; i < p.items.size(); i++) {
+                    int cx = 4 + (i % cols) * 18, cy = 16 + (i / cols) * 18;
+                    Draw.round(g, cx, cy, cx + 17, cy + 17, 2, 0x30FFFFFF);
+                    ItemStack st = p.items.get(i);
+                    if (!st.isEmpty()) {
+                        Draw.item(g, st, cx + 1, cy + 1);
+                        total++;
+                    }
                 }
+                if (total == 0) Draw.textCentered(g, Lang.t("пусто"), w / 2, 16 + rows * 9 - 4, Draw.GRAY);
             }
-            if (total == 0) Draw.textCentered(g, Lang.t("пусто"), w / 2, 16 + rows * 9 - 4, Draw.GRAY);
+        } finally {
+            pose.popMatrix(); // предмет чужого мода может упасть при отрисовке - матрица всё равно вернётся
         }
-        pose.popMatrix();
     }
 }

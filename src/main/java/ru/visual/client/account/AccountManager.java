@@ -11,7 +11,6 @@ import net.minecraft.client.User;
 import ru.visual.client.VisualClient;
 
 import java.io.Reader;
-import java.io.Writer;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
@@ -160,10 +159,15 @@ public final class AccountManager {
         if (!Files.exists(f)) return;
         try (Reader r = Files.newBufferedReader(f)) {
             JsonObject o = GSON.fromJson(r, JsonObject.class);
-            if (o != null && o.has("accounts")) {
-                for (var e : o.getAsJsonArray("accounts")) NAMES.add(e.getAsString());
+            if (o != null && o.has("accounts") && o.get("accounts").isJsonArray()) {
+                for (var e : o.getAsJsonArray("accounts")) {
+                    try {
+                        String n = e.getAsString();
+                        if (!n.isBlank() && !NAMES.contains(n)) NAMES.add(n);
+                    } catch (Exception ignored) {} // одна испорченная запись не должна терять остальные
+                }
             }
-            if (o != null && o.has("current")) current = o.get("current").getAsString();
+            if (o != null && o.has("current") && o.get("current").isJsonPrimitive()) current = o.get("current").getAsString();
         } catch (Exception e) {
             VisualClient.LOGGER.error("Не удалось прочитать аккаунты", e);
         }
@@ -176,9 +180,7 @@ public final class AccountManager {
             for (String n : NAMES) a.add(n);
             o.add("accounts", a);
             if (current != null) o.addProperty("current", current);
-            try (Writer w = Files.newBufferedWriter(file())) {
-                GSON.toJson(o, w);
-            }
+            ru.visual.client.module.Config.writeAtomic(file(), o);
         } catch (Exception e) {
             VisualClient.LOGGER.error("Не удалось сохранить аккаунты", e);
         }

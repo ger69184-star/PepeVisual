@@ -11,8 +11,13 @@ public final class Cps {
 
     public static synchronized void click(int button) {
         long now = System.currentTimeMillis();
-        if (button == 0) LEFT.addLast(now);
-        else if (button == 1) RIGHT.addLast(now);
+        if (button == 0) {
+            LEFT.addLast(now);
+            count(LEFT); // старые клики выбрасываем сразу: если HUD с CPS выключен, очередь иначе росла бы всю игру
+        } else if (button == 1) {
+            RIGHT.addLast(now);
+            count(RIGHT);
+        }
     }
 
     private static int count(ArrayDeque<Long> q) {

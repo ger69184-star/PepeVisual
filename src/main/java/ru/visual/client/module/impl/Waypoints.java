@@ -26,7 +26,6 @@ import ru.visual.client.util.Draw;
 import ru.visual.client.util.Projection;
 
 import java.io.Reader;
-import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -82,16 +81,26 @@ public class Waypoints extends Module implements Config.DefaultOn {
             JsonObject root = GSON.fromJson(r, JsonObject.class);
             if (root == null) return;
             for (String key : root.keySet()) {
+                if (!root.get(key).isJsonArray()) continue;
                 List<Point> list = new ArrayList<>();
                 for (var el : root.getAsJsonArray(key)) {
-                    JsonObject o = el.getAsJsonObject();
-                    list.add(new Point(o.get("name").getAsString(), o.get("x").getAsDouble(), o.get("y").getAsDouble(),
-                            o.get("z").getAsDouble(), o.has("color") ? o.get("color").getAsInt() : 0xFF55FFFF));
+                    // испорченная метка пропускается; раньше одна ошибка обрывала чтение, и при следующем сохранении
+                    // все непрочитанные метки стирались
+                    try {
+                        JsonObject o = el.getAsJsonObject();
+                        double x = o.get("x").getAsDouble(), y = o.get("y").getAsDouble(), z = o.get("z").getAsDouble();
+                        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) continue;
+                        list.add(new Point(o.get("name").getAsString(), x, y, z, o.has("color") ? o.get("color").getAsInt() : 0xFF55FFFF));
+                    } catch (Exception ignored) {}
                 }
                 DATA.put(key, list);
             }
         } catch (Exception e) {
             VisualClient.LOGGER.error("Не удалось прочитать метки", e);
+            // иначе первое же сохранение затёрло бы файл - копия остаётся рядом
+            try {
+                Files.copy(file(), file().resolveSibling(file().getFileName() + ".broken"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            } catch (Exception ignored) {}
         }
     }
 
@@ -112,9 +121,7 @@ public class Waypoints extends Module implements Config.DefaultOn {
                 }
                 root.add(e.getKey(), arr);
             }
-            try (Writer w = Files.newBufferedWriter(file())) {
-                GSON.toJson(root, w);
-            }
+            ru.visual.client.module.Config.writeAtomic(file(), root);
         } catch (Exception e) {
             VisualClient.LOGGER.error("Не удалось сохранить метки", e);
         }

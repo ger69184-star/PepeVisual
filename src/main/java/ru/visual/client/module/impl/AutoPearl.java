@@ -316,4 +316,9 @@ public class AutoPearl extends Module {
             }
         }
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        onDisable();
+    }
 }

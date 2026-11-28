@@ -887,4 +887,11 @@ public class AutoBrew extends Module {
         Draw.rect(g, x, y + 2, x + 2, y + lines.size() * 10 + 2, Draw.accent());
         for (int i = 0; i < lines.size(); i++) Draw.text(g, lines.get(i), x + 6, y + 3 + i * 10, cols.get(i));
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        // зельеварки и путь принадлежат старому миру: забываем и начнём заново с места, где окажемся
+        onDisable();
+        lastScan = -100;
+    }
 }

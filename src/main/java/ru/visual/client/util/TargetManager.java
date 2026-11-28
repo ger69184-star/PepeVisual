@@ -137,6 +137,13 @@ public final class TargetManager {
         return Math.max(0f, 1f - (float) (s - fadeStart) / 1500f);
     }
 
+    /** Смена мира: старые цели принадлежат прошлому миру. */
+    public static void reset() {
+        target = null;
+        hitTarget = null;
+        hitCount = 0;
+    }
+
     public static void clearHit() {
         hitTarget = null;
     }

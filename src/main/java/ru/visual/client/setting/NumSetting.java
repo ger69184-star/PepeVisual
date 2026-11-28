@@ -11,6 +11,7 @@ public class NumSetting extends Setting<Double> {
     }
 
     public void set(double v) {
+        if (Double.isNaN(v) || Double.isInfinite(v)) return; // испорченный конфиг: NaN прошёл бы через min/max
         double c = Math.max(min, Math.min(max, v));
         if (step > 0) c = Math.round(c / step) * step;
         this.value = Math.max(min, Math.min(max, c));

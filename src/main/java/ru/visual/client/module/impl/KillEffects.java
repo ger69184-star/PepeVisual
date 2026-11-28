@@ -105,4 +105,9 @@ public class KillEffects extends Module {
             mc.level.addParticle(type, p.x + (random.nextDouble() - 0.5) * 0.6, p.y + random.nextDouble() * h, p.z + (random.nextDouble() - 0.5) * 0.6, vx, vy, vz);
         }
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        recent.clear();
+    }
 }

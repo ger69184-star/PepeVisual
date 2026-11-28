@@ -59,9 +59,10 @@ public class VisualClient implements ClientModInitializer {
                 new KeyMapping("key.pepevisual.build.cancel", GLFW.GLFW_KEY_H, KeyMapping.Category.MISC));
 
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
-            while (guiKey.consumeClick()) {
-                mc.setScreen(new ClickGuiScreen());
-            }
+            // несколько нажатий за тик - одно меню; поверх чата/инвентаря/таблички меню не открываем
+            boolean openGui = false;
+            while (guiKey.consumeClick()) openGui = true;
+            if (openGui && mc.screen == null) mc.setScreen(new ClickGuiScreen());
             ru.visual.client.util.Aim.tick();
             ru.visual.client.util.Human.tick(mc);
             TargetManager.tick(mc);

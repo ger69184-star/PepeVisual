@@ -71,4 +71,10 @@ public class DamageIndicators extends Module {
             Draw.textCentered(g, p.text, (int) o[0], (int) o[1], Draw.withAlpha(p.color, (int) ((1.0 - age) * 255)));
         }
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        hp.clear();
+        popups.clear();
+    }
 }

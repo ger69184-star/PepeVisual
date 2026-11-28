@@ -127,4 +127,10 @@ public class SessionStats extends HudModule {
             Draw.textRight(g, rows[i][1], x + w - 6, ry, Draw.WHITE);
         }
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        recentHits.clear();
+        lastPos = null;
+    }
 }

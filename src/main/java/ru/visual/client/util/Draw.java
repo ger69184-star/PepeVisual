@@ -326,8 +326,11 @@ public final class Draw {
         g.pose().translate(cx, cy);
         g.pose().scale(scale, scale);
         g.pose().translate(-cx, -cy);
-        r.run();
-        g.pose().popMatrix();
+        try {
+            r.run();
+        } finally {
+            g.pose().popMatrix(); // даже при ошибке внутри - иначе съедет весь остальной HUD
+        }
     }
 
     /** Цвет здоровья: зелёный -> красный. */

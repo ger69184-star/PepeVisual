@@ -226,4 +226,10 @@ public class AutoTotem extends Module {
         }
         return String.valueOf(n);
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        onDisable();
+        cooldown = 0;
+    }
 }

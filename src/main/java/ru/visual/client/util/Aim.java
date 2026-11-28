@@ -68,6 +68,14 @@ public final class Aim {
         }
     }
 
+    /** Смена мира: никто больше не управляет камерой. */
+    public static void releaseAll() {
+        owner = null;
+        point = null;
+        angVel = 0;
+        remX = remY = 0;
+    }
+
     /** Камерой сейчас управляет кто-то из помощников. */
     public static boolean active() {
         return owner != null && point != null;

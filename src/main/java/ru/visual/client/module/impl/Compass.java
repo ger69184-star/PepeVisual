@@ -36,38 +36,41 @@ public class Compass extends HudModule {
         double ppd = w / span; // пикселей на градус
 
         Draw.panel(g, x1, y1, x2, y1 + h, Draw.bg());
-        g.enableScissor(x1 + 2, y1, x2 - 2, y1 + h);
         int accent = Draw.accent();
-        for (int deg = 0; deg < 360; deg += 15) {
-            double diff = Mth.wrapDegrees(deg - yaw);
-            if (Math.abs(diff) > span / 2 + 10) continue;
-            int x = (int) Math.round(cx + diff * ppd);
-            float edge = 1f - (float) Math.min(1, Math.abs(diff) / (span / 2));
-            int alpha = (int) (60 + 195 * edge);
-            if (deg % 45 == 0) {
-                String n = NAMES[deg / 45];
-                boolean main = deg % 90 == 0;
-                int col = n.equals("С") ? 0xFFFF5050 : main ? 0xFFFFFFFF : 0xFFB8B8C8;
-                Draw.textCentered(g, n, x, y1 + 4, Draw.withAlpha(col, alpha));
-            } else {
-                g.fill(x, y1 + 5, x + 1, y1 + 11, Draw.withAlpha(0xFFFFFF, alpha / 2));
-            }
-        }
-        if (waypoints.get() && mc.level != null) {
-            List<Waypoints.Point> list;
-            synchronized (Waypoints.class) {
-                list = new java.util.ArrayList<>(Waypoints.current(mc));
-            }
-            for (Waypoints.Point p : list) {
-                double dx = p.x() - mc.player.getX(), dz = p.z() - mc.player.getZ();
-                double ang = Math.toDegrees(Math.atan2(-dx, dz));
-                double diff = Mth.wrapDegrees(ang - yaw);
-                if (Math.abs(diff) > span / 2) continue;
+        g.enableScissor(x1 + 2, y1, x2 - 2, y1 + h);
+        try {
+            for (int deg = 0; deg < 360; deg += 15) {
+                double diff = Mth.wrapDegrees(deg - yaw);
+                if (Math.abs(diff) > span / 2 + 10) continue;
                 int x = (int) Math.round(cx + diff * ppd);
-                Draw.circle(g, x - 3, y1 + h - 6, 5, p.color() | 0xFF000000);
+                float edge = 1f - (float) Math.min(1, Math.abs(diff) / (span / 2));
+                int alpha = (int) (60 + 195 * edge);
+                if (deg % 45 == 0) {
+                    String n = NAMES[deg / 45];
+                    boolean main = deg % 90 == 0;
+                    int col = n.equals("С") ? 0xFFFF5050 : main ? 0xFFFFFFFF : 0xFFB8B8C8;
+                    Draw.textCentered(g, n, x, y1 + 4, Draw.withAlpha(col, alpha));
+                } else {
+                    g.fill(x, y1 + 5, x + 1, y1 + 11, Draw.withAlpha(0xFFFFFF, alpha / 2));
+                }
             }
+            if (waypoints.get() && mc.level != null) {
+                List<Waypoints.Point> list;
+                synchronized (Waypoints.class) {
+                    list = new java.util.ArrayList<>(Waypoints.current(mc));
+                }
+                for (Waypoints.Point p : list) {
+                    double dx = p.x() - mc.player.getX(), dz = p.z() - mc.player.getZ();
+                    double ang = Math.toDegrees(Math.atan2(-dx, dz));
+                    double diff = Mth.wrapDegrees(ang - yaw);
+                    if (Math.abs(diff) > span / 2) continue;
+                    int x = (int) Math.round(cx + diff * ppd);
+                    Draw.circle(g, x - 3, y1 + h - 6, 5, p.color() | 0xFF000000);
+                }
+            }
+        } finally {
+            g.disableScissor(); // иначе обрезался бы весь HUD после компаса
         }
-        g.disableScissor();
         // указатель по центру
         g.fill(cx, y1 + h - 3, cx + 1, y1 + h, accent);
         Draw.round(g, cx - 3, y1 - 1, cx + 4, y1 + 1, 1, accent);

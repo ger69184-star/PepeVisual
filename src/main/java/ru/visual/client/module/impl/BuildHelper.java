@@ -765,4 +765,10 @@ public class BuildHelper extends Module {
         if (cur.length() > 0) out.add(cur.toString());
         return out;
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        // выбранная зона и проект привязаны к координатам старого мира
+        if (stage != Stage.SELECT_A || !cells.isEmpty()) reset();
+    }
 }

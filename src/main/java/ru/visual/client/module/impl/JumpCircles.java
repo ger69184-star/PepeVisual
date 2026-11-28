@@ -80,4 +80,10 @@ public class JumpCircles extends Module {
             }
         }
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        circles.clear();
+        ground.clear();
+    }
 }

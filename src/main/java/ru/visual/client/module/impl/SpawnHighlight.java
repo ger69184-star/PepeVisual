@@ -105,4 +105,10 @@ public class SpawnHighlight extends Module {
             R3D.line(x + 0.8, y, z + 0.2, x + 0.2, y, z + 0.8, col, 1.6f);
         }
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        spots = new java.util.ArrayList<>();
+        timer = 0;
+    }
 }

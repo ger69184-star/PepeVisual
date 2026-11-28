@@ -376,4 +376,9 @@ public class ChestSorter extends Module {
             Draw.textCentered(g, s, sw / 2, 7, Draw.accent());
         }
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        queue.clear();
+    }
 }

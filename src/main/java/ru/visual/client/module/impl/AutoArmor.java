@@ -149,4 +149,11 @@ public class AutoArmor extends Module {
         } catch (Exception ignored) {}
         return armor * 10 + tough * 4 + prot * 3;
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        clicks.clear();
+        react = -1;
+        cooldown = 0;
+    }
 }

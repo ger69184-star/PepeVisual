@@ -82,6 +82,8 @@ public class FreeLook extends Module implements Config.DefaultOn {
     @Override
     public void onTick(Minecraft mc) {
         if (mc.player == null) {
+            // вышли из мира посреди свободной камеры - вернуть вид от первого лица, а не оставить третье лицо
+            if (active) deactivate(mc);
             active = false;
             return;
         }

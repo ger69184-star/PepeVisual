@@ -117,4 +117,10 @@ public class AimAlert extends Module {
     public String info() {
         return aims.isEmpty() ? null : String.valueOf(aims.size());
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        aims.clear();
+        warned.clear();
+    }
 }

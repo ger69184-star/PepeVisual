@@ -120,6 +120,13 @@ public abstract class Module {
     /** Каждый кадр при отрисовке мира (3D-линии/коробки через util.R3D). */
     public void onWorld(net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext ctx, float partialTick, Minecraft mc) {}
 
+    /**
+     * Сменился мир: выход с сервера, смена измерения (Overworld / Nether / End), переход между серверами и лобби
+     * (на FunTime мир меняется без смены измерения). Вызывается у всех модулей, даже выключенных, - нужно забыть
+     * всё, что привязано к старому миру (позиции, существа, начатые действия). Сам модуль при этом не выключается.
+     */
+    public void onWorldChange(Minecraft mc) {}
+
     /** Когда ты ударил существо (вызывается только у включённых модулей). */
     public void onAttack(Entity target) {}
 

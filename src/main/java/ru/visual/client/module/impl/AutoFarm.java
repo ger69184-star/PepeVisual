@@ -637,4 +637,10 @@ public class AutoFarm extends Module {
             ru.visual.client.util.R3D.boxOutline(box, q.equals(hl) ? 0xFFFFE040 : 0x9055FF77, q.equals(hl) ? 2.2f : 1.2f);
         }
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        // начатая ломка/посадка и очереди - в старом мире
+        onDisable();
+    }
 }

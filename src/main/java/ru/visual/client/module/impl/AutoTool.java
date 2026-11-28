@@ -93,4 +93,11 @@ public class AutoTool extends Module {
         if (previous < 0) previous = cur;
         inv.setSelectedSlot(best);
     }
+
+    @Override
+    public void onWorldChange(Minecraft mc) {
+        previous = -1;
+        pendingSlot = -1;
+        idle = 0;
+    }
 }

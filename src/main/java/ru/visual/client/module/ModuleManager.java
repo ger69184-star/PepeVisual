@@ -29,6 +29,8 @@ public final class ModuleManager {
     private static long frame;
     private static boolean configDirty;
     private static int saveTimer;
+    /** Мир, в котором были на прошлом тике (по ссылке: на FunTime сервер/лобби меняется без смены измерения). */
+    private static net.minecraft.client.multiplayer.ClientLevel lastLevel;
     /** Сколько раз модуль уже писал ошибку в лог (чтобы ошибка каждый кадр не забивала лог гигабайтами). */
     private static final java.util.Map<Module, Integer> ERRORS = new java.util.HashMap<>();
 
@@ -202,6 +204,10 @@ public final class ModuleManager {
             configDirty = false;
             Config.save();
         }
+        if (mc.level != lastLevel) {
+            lastLevel = mc.level;
+            worldChanged(mc);
+        }
         boolean inWorld = mc.player != null && mc.level != null;
         for (Module m : MODULES) {
             if (m.isEnabled() && (inWorld || m.tickOutsideWorld())) {
@@ -210,6 +216,20 @@ public final class ModuleManager {
                 } catch (Throwable t) {
                     error(m, "tick", t);
                 }
+            }
+        }
+    }
+
+    /** Мир сменился (или из него вышли): все модули и общие помощники забывают старый мир. */
+    private static void worldChanged(Minecraft mc) {
+        ru.visual.client.util.Aim.releaseAll();
+        ru.visual.client.util.TargetManager.reset();
+        ru.visual.client.util.ContainerMemory.reset();
+        for (Module m : MODULES) {
+            try {
+                m.onWorldChange(mc);
+            } catch (Throwable t) {
+                error(m, "world change", t);
             }
         }
     }
