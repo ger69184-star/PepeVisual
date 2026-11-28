@@ -1,0 +1,29 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "ru.visual.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "TitleScreenMixin",
+    "JoinMultiplayerScreenMixin",
+    "ParticleEngineMixin",
+    "ScreenEffectRendererMixin",
+    "GameRendererMixin",
+    "ItemInHandRendererMixin",
+    "EntityMixin",
+    "LevelRendererMixin",
+    "MinecraftMixin",
+    "LightTextureMixin",
+    "MouseHandlerMixin",
+    "FogRendererMixin",
+    "ClientLevelDataMixin",
+    "ClientPacketListenerMixin",
+    "ChatComponentMixin",
+    "AbstractContainerScreenAccessor",
+    "LocalPlayerMixin",
+    "KeyMappingAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}
