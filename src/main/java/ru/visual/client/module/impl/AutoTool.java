@@ -19,7 +19,9 @@ public class AutoTool extends Module {
     private final BoolSetting onlyFaster = add(new BoolSetting("Только если быстрее", "Не менять предмет, если текущий ломает не хуже.", true));
 
     private int previous = -1;
-    private int idle;
+    private int idle, idleLimit = 8;
+    /** Слот, на который собираемся переключиться, и сколько ещё "думаем" (человек меняет предмет не в тот же миг). */
+    private int pendingSlot = -1, pendingWait;
 
     public AutoTool() {
         super("AutoTool", "Когда ломаешь блок, сам берёт лучший инструмент из хотбара и потом возвращает прежний предмет.", Category.HELPERS);
@@ -43,12 +45,14 @@ public class AutoTool extends Module {
         boolean mining = mc.screen == null && mc.options.keyAttack.isDown()
                 && mc.hitResult instanceof BlockHitResult bh && bh.getType() == HitResult.Type.BLOCK;
         if (!mining) {
-            if (previous >= 0 && ++idle > 4) {
+            pendingSlot = -1;
+            if (previous >= 0 && ++idle > idleLimit) {
                 if (restore.get() && previous != inv.getSelectedSlot()) inv.setSelectedSlot(previous);
                 previous = -1;
             }
             return;
         }
+        if (idle > 0) idleLimit = ru.visual.client.util.Human.range(6, 16);
         idle = 0;
         BlockState st = mc.level.getBlockState(((BlockHitResult) mc.hitResult).getBlockPos());
         if (st.isAir() || st.getDestroySpeed(mc.level, ((BlockHitResult) mc.hitResult).getBlockPos()) < 0) return;
@@ -71,8 +75,18 @@ public class AutoTool extends Module {
                 bestCorrect = correct;
             }
         }
-        if (best == cur) return;
+        if (best == cur) {
+            pendingSlot = -1;
+            return;
+        }
         if (onlyFaster.get() && bestSpeed <= curSpeed && bestCorrect == curCorrect) return;
+        if (pendingSlot != best) {
+            pendingSlot = best;
+            pendingWait = ru.visual.client.util.Human.range(1, 4);
+            return;
+        }
+        if (pendingWait-- > 0) return;
+        pendingSlot = -1;
         if (previous < 0) previous = cur;
         inv.setSelectedSlot(best);
     }

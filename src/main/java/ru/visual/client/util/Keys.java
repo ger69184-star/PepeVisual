@@ -21,4 +21,10 @@ public final class Keys {
     public static void release(Minecraft mc, KeyMapping km) {
         km.setDown(physical(mc, km));
     }
+
+    /** Одно нажатие клавиши (как будто игрок кликнул): ванильный код в следующем тике сам сделает удар/использование. */
+    public static void click(KeyMapping km) {
+        ru.visual.client.mixin.KeyMappingAccessor a = (ru.visual.client.mixin.KeyMappingAccessor) km;
+        a.pepevisual$setClickCount(a.pepevisual$getClickCount() + 1);
+    }
 }

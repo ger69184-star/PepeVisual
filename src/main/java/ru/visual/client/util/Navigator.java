@@ -28,6 +28,7 @@ import java.util.function.Predicate;
 
 /**
  * Навигатор для ботов (AutoBrew): поиск пути A* и движение по нему клавишами.
+ * Камера поворачивается плавно (Aim, каждый кадр) и смотрит вперёд по пути, двери открываются взглядом и ПКМ.
  * Понимает плиты, ковры, снег, песок душ и грядки (раньше пол из плит/ковров считался "стеной" и путь не находился),
  * ходит по диагонали, открывает деревянные двери и калитки, спускается до 3 блоков, обходит лаву, огонь и кактусы.
  * Клетка пути = блок, в котором стоят ноги игрока.
@@ -40,7 +41,9 @@ public final class Navigator {
     private List<BlockPos> path = new ArrayList<>();
     private int idx;
     private Vec3 lastPos;
-    private int stuck, doorCooldown;
+    private int stuck, doorCooldown, doorTicks;
+    private BlockPos doorPos;
+    private Vec3 doorPoint;
     public boolean failed;
 
     public boolean hasPath() {
@@ -230,12 +233,22 @@ public final class Navigator {
             return tick(mc, p);
         }
 
-        openDoors(mc, p);
+        if (openDoors(mc, p)) {
+            mc.options.keyUp.setDown(false);
+            mc.options.keyJump.setDown(false);
+            return false;
+        }
+
+        // смотрим не на клетку под ногами, а чуть вперёд по пути - поворот плавный, как у человека (Aim крутит камеру каждый кадр)
+        Vec3 aheadC = c;
+        if (hd < 1.4 && idx + 1 < path.size()) aheadC = Vec3.atBottomCenterOf(path.get(idx + 1));
+        double ax = aheadC.x - p.getX(), az = aheadC.z - p.getZ();
+        double al = Math.max(1e-3, Math.sqrt(ax * ax + az * az)), far = Math.max(3.0, al);
+        Aim.look(this, new Vec3(p.getX() + ax / al * far, p.getEyeY() - 0.75 + Mth.clamp(dy, -1, 1) * 0.5, p.getZ() + az / al * far));
 
         float target = (float) Math.toDegrees(Math.atan2(-dx, dz));
         float diff = Mth.wrapDegrees(target - p.getYRot());
-        p.setYRot(p.getYRot() + Mth.clamp(diff, -30f, 30f));
-        mc.options.keyUp.setDown(Math.abs(diff) < 50f);
+        mc.options.keyUp.setDown(Math.abs(diff) < 45f);
         boolean jump = p.onGround() && ((dy > 0.6 && hd < 1.6) || (p.horizontalCollision && Math.abs(diff) < 30f));
         mc.options.keyJump.setDown(jump);
 
@@ -252,11 +265,14 @@ public final class Navigator {
         return false;
     }
 
-    /** Открывает закрытую дверь/калитку на ближайших клетках пути. */
-    private void openDoors(Minecraft mc, LocalPlayer p) {
+    /**
+     * Закрытая дверь/калитка на ближайших клетках пути: смотрим на неё и жмём ПКМ (как игрок).
+     * true - сейчас занимаемся дверью, идти пока не надо.
+     */
+    private boolean openDoors(Minecraft mc, LocalPlayer p) {
         if (doorCooldown > 0) {
             doorCooldown--;
-            return;
+            return false;
         }
         for (int i = idx; i < Math.min(path.size(), idx + 2); i++) {
             for (BlockPos b : new BlockPos[]{path.get(i), path.get(i).above()}) {
@@ -265,17 +281,38 @@ public final class Navigator {
                 boolean open = s.getBlock() instanceof DoorBlock d ? d.isOpen(s) : s.getValue(FenceGateBlock.OPEN);
                 if (open) continue;
                 if (p.getEyePosition().distanceTo(Vec3.atCenterOf(b)) > 3.5) continue;
-                mc.gameMode.useItemOn(p, InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(b), Direction.UP, b, false));
-                doorCooldown = 10;
-                return;
+                if (doorPoint == null || !doorPos.equals(b)) {
+                    doorPos = b.immutable();
+                    doorPoint = Aim.pointOn(mc.level, p, b, 0.35, 0.75);
+                    if (doorPoint == null) doorPoint = Vec3.atCenterOf(b);
+                    doorTicks = 0;
+                }
+                Aim.look(this, doorPoint);
+                boolean onDoor = Aim.crosshairOn(mc, b) || (openable(mc.level.getBlockState(b.above())) && Aim.crosshairOn(mc, b.above()))
+                        || (openable(mc.level.getBlockState(b.below())) && Aim.crosshairOn(mc, b.below()));
+                if (onDoor && Aim.settled(this) && ++doorTicks > 1) {
+                    Keys.click(mc.options.keyUse);
+                    Aim.freeze(2);
+                    doorCooldown = Human.range(8, 14);
+                    doorPoint = null;
+                } else if (doorTicks++ > 40) {
+                    // так и не навели - откроем как раньше, чтобы не застрять навсегда
+                    mc.gameMode.useItemOn(p, InteractionHand.MAIN_HAND, new BlockHitResult(doorPoint, Direction.UP, b, false));
+                    doorCooldown = 10;
+                    doorPoint = null;
+                }
+                return true;
             }
         }
+        doorPoint = null;
+        return false;
     }
 
     public void stop(Minecraft mc) {
         // если игрок сам держит W/пробел - не "отжимаем" их
         Keys.release(mc, mc.options.keyUp);
         Keys.release(mc, mc.options.keyJump);
+        Aim.release(this);
         stuck = 0;
         lastPos = null;
     }

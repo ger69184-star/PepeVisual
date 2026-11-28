@@ -62,6 +62,8 @@ public class VisualClient implements ClientModInitializer {
             while (guiKey.consumeClick()) {
                 mc.setScreen(new ClickGuiScreen());
             }
+            ru.visual.client.util.Aim.tick();
+            ru.visual.client.util.Human.tick(mc);
             TargetManager.tick(mc);
             ContainerMemory.tick(mc);
             ru.visual.client.util.HeldTracker.tick(mc);

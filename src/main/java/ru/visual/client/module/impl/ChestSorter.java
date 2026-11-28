@@ -60,7 +60,7 @@ public class ChestSorter extends Module {
     private final BoolSetting autoSort = add(new BoolSetting("Авто-сортировка", "Сортировать сундук сразу при открытии.", false));
     private final BoolSetting autoStack = add(new BoolSetting("Авто-раскладка", "При открытии сундука перекладывать в него предметы из инвентаря, которые в нём уже есть. Так склад раскладывается сам.", false));
     private final BoolSetting keepHotbar = add(new BoolSetting("Не трогать хотбар", "Раскладка не забирает предметы из хотбара.", true));
-    private final NumSetting speed = add(new NumSetting("Кликов за тик", "Скорость перекладывания. Меньше - надёжнее на серверах с задержкой.", 4, 1, 20, 1));
+    private final NumSetting speed = add(new NumSetting("Кликов в секунду", "Средняя скорость перекладывания. Интервалы между кликами всегда немного разные, как у человека (живой игрок делает 5-10 кликов в секунду).", 7, 2, 16, 1));
     private final BoolSetting search = add(new BoolSetting("Поиск по сундукам", "Подсвечивать сундуки, где по памяти лежит предмет из твоей руки (сундук нужно хоть раз открыть).", true));
     private final NumSetting searchRange = add(new NumSetting("Дальность поиска", "Как далеко подсвечивать сундуки с нужным предметом (блоки).", 48, 8, 128, 4));
 
@@ -72,6 +72,8 @@ public class ChestSorter extends Module {
     private boolean ranQueue;
     private String status = "";
     private long statusTime;
+    /** Когда можно сделать следующий клик (мс), 0 - очередь только началась. */
+    private long nextClickAt;
 
     public ChestSorter() {
         super("ChestSorter", "Сортировка по сундукам: кнопки сортировки, авто-раскладка предметов по сундукам и поиск, где что лежит.", Category.HELPERS);
@@ -269,6 +271,7 @@ public class ChestSorter extends Module {
         AbstractContainerMenu m = mc.player.containerMenu;
         if (!(mc.screen instanceof AbstractContainerScreen<?>)) {
             queue.clear();
+            nextClickAt = 0;
             lastAutoContainer = -1;
             return;
         }
@@ -278,8 +281,12 @@ public class ChestSorter extends Module {
             if (autoStack.get()) quickStack(mc);
             if (autoSort.get() && queue.isEmpty()) sortContainer(mc);
         }
-        int n = speed.asInt();
-        while (n-- > 0 && !queue.isEmpty()) {
+        // клики по одному, с живыми интервалами; перед первым - пауза, как будто навёл мышь
+        long now = System.currentTimeMillis();
+        if (queue.isEmpty()) nextClickAt = 0;
+        else if (nextClickAt == 0) nextClickAt = now + ru.visual.client.util.Human.range(180, 380);
+        int n = 0;
+        while (!queue.isEmpty() && now >= nextClickAt && n < 2) {
             Click c = queue.peekFirst();
             if (c.containerId != m.containerId) {
                 queue.clear();
@@ -288,6 +295,8 @@ public class ChestSorter extends Module {
             queue.pollFirst();
             if (c.slot >= m.slots.size()) continue;
             mc.gameMode.handleInventoryMouseClick(c.containerId, c.slot, c.button, c.type, mc.player);
+            n++;
+            nextClickAt = Math.max(nextClickAt, now - 60) + ru.visual.client.util.Human.clickMs(speed.get());
         }
         boolean finishedNow = ranQueue && queue.isEmpty();
         ranQueue = !queue.isEmpty();

@@ -18,6 +18,7 @@ import ru.visual.client.module.Category;
 import ru.visual.client.module.Module;
 import ru.visual.client.setting.BoolSetting;
 import ru.visual.client.setting.NumSetting;
+import ru.visual.client.util.Human;
 
 /**
  * Сам надевает броню из инвентаря: в пустые слоты, а если включено - заменяет на более прочную (броня + твёрдость + защита).
@@ -29,9 +30,12 @@ public class AutoArmor extends Module {
     private final BoolSetting upgrade = add(new BoolSetting("Заменять на лучшую", "Если в инвентаре есть броня лучше надетой - поменять (старая ляжет на её место).", true));
     private final BoolSetting keepElytra = add(new BoolSetting("Не снимать элитры", "Элитры на спине не меняются на нагрудник.", true));
     private final NumSetting minDurability = add(new NumSetting("Мин. прочность (%)", "Не надевать почти сломанные вещи.", 5, 0, 50, 1));
-    private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Пауза между вещами (20 тиков = 1 сек).", 3, 0, 20, 1));
+    private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Средняя пауза между вещами (20 тиков = 1 сек). Каждая пауза немного разная, как у человека.", 6, 2, 30, 1));
+    private final BoolSetting onlyInventory = add(new BoolSetting("Только в открытом инвентаре", "Надевать броню, только когда ты сам открыл инвентарь (E) - самый незаметный вариант. Выкл: ещё и без окна, но только пока ты спокойно стоишь (не бежишь и не крутишь камерой).", false));
 
-    private int cooldown;
+    private int cooldown, react = -1;
+    /** Клики по одному с паузами между ними. {слот, кнопка, тип} */
+    private final java.util.ArrayDeque<int[]> clicks = new java.util.ArrayDeque<>();
 
     public AutoArmor() {
         super("AutoArmor", "Сам надевает броню из инвентаря и меняет её на более прочную. Элитры и проклятые вещи не трогает.", Category.HELPERS);
@@ -45,8 +49,23 @@ public class AutoArmor extends Module {
             cooldown--;
             return;
         }
-        if (mc.screen != null && !(mc.screen instanceof InventoryScreen)) return;
+        if (mc.screen != null && !(mc.screen instanceof InventoryScreen)) {
+            clicks.clear();
+            return;
+        }
+        // начатую замену доводим до конца (иначе вещь останется "в курсоре")
+        if (!clicks.isEmpty()) {
+            int[] c = clicks.pollFirst();
+            mc.gameMode.handleInventoryMouseClick(p.inventoryMenu.containerId, c[0], c[1], ClickType.values()[c[2]], p);
+            cooldown = clicks.isEmpty() ? Human.ticks(delay.get()) : Human.range(2, 5);
+            return;
+        }
         if (!p.containerMenu.getCarried().isEmpty()) return;
+        boolean open = mc.screen instanceof InventoryScreen;
+        if (!open && (onlyInventory.get() || !Human.standingStill(10))) {
+            react = -1;
+            return;
+        }
 
         for (int s = 0; s < SLOTS.length; s++) {
             EquipmentSlot slot = SLOTS[s];
@@ -70,18 +89,24 @@ public class AutoArmor extends Module {
                 }
             }
             if (best < 0) continue;
-            int id = p.inventoryMenu.containerId;
+            // заметили вещь получше - не в тот же тик
+            if (react < 0) {
+                react = Human.range(4, 12);
+                return;
+            }
+            if (react-- > 0) return;
+            react = -1;
             if (worn.isEmpty()) {
-                mc.gameMode.handleInventoryMouseClick(id, best, 0, ClickType.QUICK_MOVE, p);
+                clicks.add(new int[]{best, 0, ClickType.QUICK_MOVE.ordinal()});
             } else {
                 // взять новую вещь, положить в слот брони (старая окажется в курсоре), вернуть старую на место новой
-                mc.gameMode.handleInventoryMouseClick(id, best, 0, ClickType.PICKUP, p);
-                mc.gameMode.handleInventoryMouseClick(id, armorMenuSlot, 0, ClickType.PICKUP, p);
-                mc.gameMode.handleInventoryMouseClick(id, best, 0, ClickType.PICKUP, p);
+                clicks.add(new int[]{best, 0, ClickType.PICKUP.ordinal()});
+                clicks.add(new int[]{armorMenuSlot, 0, ClickType.PICKUP.ordinal()});
+                clicks.add(new int[]{best, 0, ClickType.PICKUP.ordinal()});
             }
-            cooldown = delay.asInt();
             return; // по одной вещи за раз
         }
+        react = -1;
     }
 
     private boolean fits(ItemStack st, EquipmentSlot slot) {

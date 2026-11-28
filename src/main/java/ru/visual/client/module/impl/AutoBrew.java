@@ -8,10 +8,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.BrewingStandScreen;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.inventory.BrewingStandMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.Item;
@@ -34,7 +32,10 @@ import ru.visual.client.module.Module;
 import ru.visual.client.setting.BoolSetting;
 import ru.visual.client.setting.ModeSetting;
 import ru.visual.client.setting.NumSetting;
+import ru.visual.client.util.Aim;
 import ru.visual.client.util.Draw;
+import ru.visual.client.util.Human;
+import ru.visual.client.util.Keys;
 import ru.visual.client.util.Navigator;
 import ru.visual.client.util.Projection;
 import ru.visual.client.util.R3D;
@@ -105,7 +106,7 @@ public class AutoBrew extends Module {
     private final BoolSetting panel = add(new BoolSetting("Панель", "Список зельеварок с таймерами и чего не хватает.", true));
     private final BoolSetting labels = add(new BoolSetting("Метки над зельеварками", "Над каждой зельеваркой её номер, состояние и таймер.", true));
     private final NumSetting reach = add(new NumSetting("Дотягиваться", "С какого расстояния бот открывает зельеварку (блоки).", 4.0, 2.0, 4.5, 0.5));
-    private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Пауза между кликами в окне зельеварки. Больше - медленнее и незаметнее.", 3, 1, 12, 1));
+    private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Средняя пауза между кликами в окне зельеварки. Каждая пауза немного разная, как у человека.", 4, 1, 12, 1));
 
     private final Map<BlockPos, Stand> stands = new HashMap<>();
     private Stand current;
@@ -123,6 +124,13 @@ public class AutoBrew extends Module {
     private boolean goingHome;
     private int repaths;
     private String status = "ищу зельеварки";
+    /** Клики в окне зельеварки: по одному, с паузами, как делает человек мышкой. {слот, кнопка, тип} */
+    private final java.util.ArrayDeque<int[]> clicks = new java.util.ArrayDeque<>();
+    private int lastMenuId = -1;
+    private boolean closePending;
+    private Stand openFor;
+    private Vec3 openPoint;
+    private int aimTicks, reaction;
 
     public AutoBrew() {
         super("AutoBrew", "Зельевар: запоминает все зельеварки рядом, сам ходит к тем, где есть дело, и варит выбранное зелье.", Category.HELPERS);
@@ -145,6 +153,12 @@ public class AutoBrew extends Module {
         home = null;
         goingHome = false;
         wait = openWait = startWait = pauseTicks = 0;
+        clicks.clear();
+        closePending = false;
+        openPoint = null;
+        openFor = null;
+        lastMenuId = -1;
+        Aim.release(this);
         Minecraft mc = Minecraft.getInstance();
         nav.clear();
         if (mc.options != null) nav.stop(mc);
@@ -338,6 +352,28 @@ public class AutoBrew extends Module {
                 botOpened = false;
             }
             status = current != null ? Lang.t("работаю в зельеварке №") + current.number : Lang.t("работаю в зельеварке");
+            Aim.release(this);
+            if (m.containerId != lastMenuId) {
+                // окно только открылось: человеку нужно мгновение, чтобы посмотреть, что внутри
+                lastMenuId = m.containerId;
+                clicks.clear();
+                closePending = false;
+                wait = Human.range(6, 13);
+                return;
+            }
+            if (closePending) {
+                closePending = false;
+                if (botOpened) mc.player.closeContainer();
+                botOpened = false;
+                wait = Human.range(4, 10);
+                return;
+            }
+            if (!clicks.isEmpty()) {
+                int[] c = clicks.pollFirst();
+                if (c[0] < m.slots.size()) mc.gameMode.handleInventoryMouseClick(m.containerId, c[0], c[1], ClickType.values()[c[2]], mc.player);
+                wait = Human.ticks(delay.get());
+                return;
+            }
             handle(mc, m);
             return;
         }
@@ -345,6 +381,9 @@ public class AutoBrew extends Module {
             nav.stop(mc);
             return;
         }
+        lastMenuId = -1;
+        closePending = false;
+        clicks.clear();
         if (openWait > 0) {
             if (--openWait == 0 && current != null) {
                 // окно так и не открылось (заслонили, далеко, лаг) - попробуем позже
@@ -374,6 +413,12 @@ public class AutoBrew extends Module {
             status = Lang.t("пауза: ты управляешь");
             return;
         }
+        // игрок сам крутит камеру - ждём (путь не сбрасываем)
+        if (Aim.userActive()) {
+            nav.stop(mc);
+            status = Lang.t("пауза: ты управляешь");
+            return;
+        }
 
         if (target != null && !needsVisit(mc, target)) {
             target = null;
@@ -396,13 +441,33 @@ public class AutoBrew extends Module {
         if (inReach(mc, target.pos)) {
             nav.stop(mc);
             nav.clear();
-            lookAt(mc, target.pos);
+            // плавно смотрим на зельеварку и жмём ПКМ, когда прицел на ней (как игрок)
+            if (openFor != target || openPoint == null) {
+                openFor = target;
+                openPoint = Aim.pointOn(mc.level, mc.player, target.pos, 0.08, 0.9);
+                if (openPoint == null) openPoint = Vec3.atCenterOf(target.pos);
+                aimTicks = 0;
+                reaction = Human.range(2, 5);
+            }
+            Aim.look(this, openPoint);
+            status = Lang.t("открываю зельеварку №") + target.number;
+            if (++aimTicks > 50) {
+                // не навести прицел (заслоняет блок) - попробуем позже
+                target.kind = Kind.UNREACHABLE;
+                target.retryAt = tick + 200;
+                target = null;
+                openPoint = null;
+                Aim.release(this);
+                return;
+            }
+            if (!Aim.crosshairOn(mc, target.pos) || !Aim.settled(this) || reaction-- > 0) return;
+            Keys.click(mc.options.keyUse);
+            Aim.freeze(3);
             current = target;
             botOpened = true;
-            openWait = 15;
-            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
-                    new BlockHitResult(Vec3.atCenterOf(target.pos), Direction.UP, target.pos, false));
+            openWait = 20;
             target = null;
+            openPoint = null;
             return;
         }
 
@@ -495,19 +560,9 @@ public class AutoBrew extends Module {
         return mc.player.getEyePosition().distanceTo(Vec3.atCenterOf(stand)) <= reach.get();
     }
 
-    private void lookAt(Minecraft mc, BlockPos pos) {
-        Vec3 eye = mc.player.getEyePosition();
-        Vec3 c = Vec3.atCenterOf(pos);
-        double dx = c.x - eye.x, dy = c.y - eye.y, dz = c.z - eye.z;
-        double hd = Math.sqrt(dx * dx + dz * dz);
-        mc.player.setYRot((float) Math.toDegrees(Math.atan2(-dx, dz)));
-        mc.player.setXRot((float) -Math.toDegrees(Math.atan2(dy, hd)));
-    }
-
     /** Закрыть окно и запомнить, в каком состоянии оставили зельеварку. */
     private void finishVisit(Minecraft mc, Kind kind, State contents, long readyIn) {
-        if (botOpened) mc.player.closeContainer();
-        botOpened = false;
+        closePending = true; // закроем окно чуть позже, не в тот же миг
         if (current != null) {
             current.kind = kind;
             current.contents = contents;
@@ -516,13 +571,14 @@ public class AutoBrew extends Module {
         }
         current = null;
         startWait = 0;
-        wait = delay.asInt();
+        wait = Human.range(3, 8);
     }
 
     // ---------- работа внутри окна зельеварки ----------
 
+    /** Клик ставится в очередь: выполняется по одному за раз с разными паузами. */
     private void click(Minecraft mc, BrewingStandMenu m, int slot, int button, ClickType type) {
-        mc.gameMode.handleInventoryMouseClick(m.containerId, slot, button, type, mc.player);
+        clicks.add(new int[]{slot, button, type.ordinal()});
     }
 
     private void placeOne(Minecraft mc, BrewingStandMenu m, int invSlot, int target) {
@@ -584,7 +640,7 @@ public class AutoBrew extends Module {
                 for (int i = 0; i < 3; i++) {
                     if (!m.getSlot(i).getItem().isEmpty()) {
                         click(mc, m, i, 0, ClickType.QUICK_MOVE);
-                        wait = d;
+                        wait = Human.ticks(d) - 1;
                         return;
                     }
                 }
@@ -597,7 +653,7 @@ public class AutoBrew extends Module {
             int inv = findItem(m, Items.BLAZE_POWDER);
             if (inv >= 0) {
                 placeOne(mc, m, inv, 4);
-                wait = d;
+                wait = Human.ticks(d) - 1;
                 return;
             }
         }
@@ -606,7 +662,7 @@ public class AutoBrew extends Module {
             int inv = findPotion(m, cur);
             if (inv >= 0) {
                 click(mc, m, inv, 0, ClickType.QUICK_MOVE);
-                wait = d;
+                wait = Human.ticks(d) - 1;
                 return;
             }
         }
@@ -624,7 +680,7 @@ public class AutoBrew extends Module {
                 return;
             }
             placeOne(mc, m, inv, 3);
-            wait = d;
+            wait = Human.ticks(d) - 1;
             return;
         }
         if (step != null && !ingSlot.is(step.ingredient)) {

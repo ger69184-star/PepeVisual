@@ -14,6 +14,9 @@ import ru.visual.client.setting.BoolSetting;
 import ru.visual.client.setting.NumSetting;
 
 import java.util.Set;
+import ru.visual.client.util.Aim;
+import ru.visual.client.util.Human;
+import ru.visual.client.util.Keys;
 
 /** Сам ест, когда голод падает ниже порога. Еду берёт из хотбара. */
 public class AutoEat extends Module {
@@ -25,6 +28,8 @@ public class AutoEat extends Module {
     private final BoolSetting preferSat = add(new BoolSetting("Самую сытную", "Выбирать еду с наибольшим насыщением (иначе - самую дешёвую, которой хватит).", true));
 
     private int eatingSlot = -1, previous = -1, ticks;
+    /** "Человеческие" паузы: заметил голод -> взял еду -> зажал ПКМ -> доел -> через мгновение вернул слот. */
+    private int reactWait = -1, startWait, restoreWait;
 
     public AutoEat() {
         super("AutoEat", "Сам ест, когда проголодался: выбирает еду из хотбара (без гнилой плоти и золотых яблок), потом возвращает прежний слот.", Category.HELPERS);
@@ -35,14 +40,23 @@ public class AutoEat extends Module {
         stop(Minecraft.getInstance());
     }
 
+    /** Сразу всё вернуть (выключили функцию). */
     private void stop(Minecraft mc) {
-        if (eatingSlot >= 0) {
-            mc.options.keyUse.setDown(false);
-            if (mc.player != null && previous >= 0) mc.player.getInventory().setSelectedSlot(previous);
-        }
+        if (eatingSlot >= 0) Keys.release(mc, mc.options.keyUse);
+        if ((eatingSlot >= 0 || restoreWait > 0) && mc.player != null && previous >= 0) mc.player.getInventory().setSelectedSlot(previous);
         eatingSlot = -1;
         previous = -1;
         ticks = 0;
+        reactWait = -1;
+        restoreWait = 0;
+    }
+
+    /** Доели: отпускаем ПКМ, слот вернём через несколько тиков. */
+    private void finish(Minecraft mc) {
+        Keys.release(mc, mc.options.keyUse);
+        eatingSlot = -1;
+        ticks = 0;
+        restoreWait = previous >= 0 ? Human.range(4, 12) : 0;
     }
 
     @Override
@@ -55,32 +69,64 @@ public class AutoEat extends Module {
         LocalPlayer p = mc.player;
         if (p == null || mc.gameMode == null) {
             eatingSlot = -1;
+            restoreWait = 0;
+            return;
+        }
+        if (restoreWait > 0) {
+            if (--restoreWait == 0) {
+                if (previous >= 0 && mc.screen == null) p.getInventory().setSelectedSlot(previous);
+                previous = -1;
+            }
             return;
         }
         int food = p.getFoodData().getFoodLevel();
         if (eatingSlot >= 0) {
-            ticks++;
             Inventory inv = p.getInventory();
             boolean stillFood = inv.getItem(eatingSlot).has(DataComponents.FOOD);
-            // доели (сытость выросла / еда кончилась), открыли меню или слишком долго
-            if (mc.screen != null || !stillFood || inv.getSelectedSlot() != eatingSlot || ticks > 60
-                    || (ticks > 5 && !p.isUsingItem()) || food >= 20) {
-                stop(mc);
-            } else {
-                mc.options.keyUse.setDown(true);
+            if (mc.screen != null || !stillFood || inv.getSelectedSlot() != eatingSlot) {
+                finish(mc);
+                return;
             }
+            if (startWait > 0) { // еду взяли в руку, ПКМ зажмём чуть позже
+                if (--startWait == 0) mc.options.keyUse.setDown(true);
+                return;
+            }
+            ticks++;
+            // доели (сытость выросла / еда кончилась), открыли меню или слишком долго
+            if (ticks > 60 || (ticks > 5 && !p.isUsingItem()) || food >= 20) finish(mc);
+            else mc.options.keyUse.setDown(true);
             return;
         }
-        if (mc.screen != null || p.isUsingItem() || p.getAbilities().instabuild) return;
+        if (mc.screen != null || p.isUsingItem() || p.getAbilities().instabuild) {
+            reactWait = -1;
+            return;
+        }
         boolean need = food < hunger.asInt() || (lowHp.get() && p.getHealth() < p.getMaxHealth() / 2 && food < 20);
-        if (!need) return;
+        if (!need) {
+            reactWait = -1;
+            return;
+        }
+        // не посреди клика/копания и не пока помощник наводит камеру
+        if (mc.mouseHandler.isLeftPressed() || mc.mouseHandler.isRightPressed() || Aim.active()) return;
+        if (reactWait < 0) {
+            reactWait = Human.range(8, 30); // заметил, что голоден, не в тот же тик
+            return;
+        }
+        if (reactWait-- > 0) return;
+        reactWait = -1;
         int slot = pick(p, 20 - food);
         if (slot < 0) return;
         previous = p.getInventory().getSelectedSlot();
-        p.getInventory().setSelectedSlot(slot);
-        eatingSlot = slot;
         ticks = 0;
-        mc.options.keyUse.setDown(true);
+        eatingSlot = slot;
+        if (slot != previous) {
+            p.getInventory().setSelectedSlot(slot);
+            startWait = Human.range(2, 5);
+        } else {
+            previous = -1;
+            startWait = 0;
+            mc.options.keyUse.setDown(true);
+        }
     }
 
     private int pick(LocalPlayer p, int missing) {

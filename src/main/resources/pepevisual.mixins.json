@@ -21,7 +21,8 @@
     "ClientPacketListenerMixin",
     "ChatComponentMixin",
     "AbstractContainerScreenAccessor",
-    "LocalPlayerMixin"
+    "LocalPlayerMixin",
+    "KeyMappingAccessor"
   ],
   "injectors": {
     "defaultRequire": 0
