@@ -46,6 +46,14 @@ jobs:
               print(f'::{kind} title=build log::{c}')
           PY
 
+      # Выкладываем лог сборки при сбое, чтобы можно было его забрать
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build-output.txt
+
       - name: Upload mod jar
         if: success()
         uses: actions/upload-artifact@v4
