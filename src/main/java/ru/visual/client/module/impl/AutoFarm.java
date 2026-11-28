@@ -54,7 +54,7 @@ public class AutoFarm extends Module {
     private final NumSetting reach = add(new NumSetting("Радиус", "Как далеко от тебя собирать урожай (блоки, не больше досягаемости руки).", 4.0, 1.5, 4.5, 0.5));
     private final BoolSetting rotate = addIf(new BoolSetting("Смотреть на блок", "Поворачивать голову к блоку перед действием (выглядит естественнее, меньше вопросов от античита).", true), () -> !tune.advanced());
     private final BoolSetting show = add(new BoolSetting("Показывать зону", "3D: круг досягаемости, созревшие растения в радиусе подсвечены, ломаемый блок - ярче.", true));
-    private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Средняя пауза между действиями. Каждая пауза немного разная, после серии действий - короткий перерыв, как у человека.", 4, 1, 12, 1));
+    private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Пауза между действиями. В продвинутом режиме - средняя: каждая пауза немного разная, как у человека.", 4, 1, 12, 1));
 
     private enum Act { BREAK, HOLD, USE }
 

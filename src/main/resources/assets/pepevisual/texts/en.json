@@ -1241,5 +1241,20 @@
  "Средняя скорость перекладывания. Интервалы между кликами всегда немного разные, как у человека (живой игрок делает 5-10 кликов в секунду).": "Average moving speed. Intervals between clicks are always a bit different, like a human's (a real player makes 5-10 clicks per second).",
  "Добавочная пауза перед перекладыванием (20 тиков = 1 сек). Реакция всегда немного разная, как у человека.": "Extra pause before swapping (20 ticks = 1 sec). The reaction is always a bit different, like a human's.",
  "Из инвентаря на ходу": "From inventory while moving",
- "Брать тотем из основного инвентаря даже на бегу (без открытого инвентаря так не может ни один игрок - античит может заметить). Выкл: из хотбара - всегда, клавишей F; из инвентаря - только когда стоишь или открыл инвентарь.": "Take a totem from the main inventory even while running (no player can do that without opening the inventory - the anti-cheat may notice). Off: from the hotbar - always, with the F key; from the inventory - only when standing still or with the inventory open."
+ "Брать тотем из основного инвентаря даже на бегу (без открытого инвентаря так не может ни один игрок - античит может заметить). Выкл: из хотбара - всегда, клавишей F; из инвентаря - только когда стоишь или открыл инвентарь.": "Take a totem from the main inventory even while running (no player can do that without opening the inventory - the anti-cheat may notice). Off: from the hotbar - always, with the F key; from the inventory - only when standing still or with the inventory open.",
+ "Поведение": "Behavior",
+ "Базовый": "Basic",
+ "Продвинутый": "Advanced",
+ "Реакция": "Reaction",
+ "Скорость камеры": "Camera speed",
+ "Уступать мыши": "Yield to mouse",
+ "Перерывы": "Breaks",
+ "Базовый - как раньше: быстро и точно, камера сразу смотрит на блок, клики без пауз. Продвинутый - как живой игрок: плавная камера, обычные нажатия, разные паузы (меньше вопросов от античита).": "Basic - like before: fast and precise, the camera snaps to the block, clicks without pauses. Advanced - like a real player: smooth camera, normal key presses, varied pauses (less attention from anti-cheat).",
+ "Продвинутый режим: множитель пауз реакции. Меньше 1 - быстрее (но менее естественно), больше 1 - спокойнее.": "Advanced mode: reaction pause multiplier. Below 1 - faster (but less natural), above 1 - calmer.",
+ "Продвинутый режим: как быстро помощник поворачивает камеру. 1 - как обычный игрок, 2 - резко, 0.5 - очень плавно.": "Advanced mode: how fast the helper turns the camera. 1 - like a normal player, 2 - sharp, 0.5 - very smooth.",
+ "Продвинутый режим: если ты сам двигаешь мышь, помощник ждёт и не тянет камеру.": "Advanced mode: if you move the mouse yourself, the helper waits and doesn't pull the camera.",
+ "Продвинутый режим: после 10-25 действий делать короткий перерыв (0.6-2 сек), как живой игрок.": "Advanced mode: take a short break (0.6-2 s) after 10-25 actions, like a real player.",
+ "Пауза между вещами (20 тиков = 1 сек). В продвинутом режиме - средняя: каждая пауза немного разная, как у человека.": "Pause between items (20 ticks = 1 s). In advanced mode it's an average: every pause is slightly different, like a human.",
+ "Пауза между кликами в окне зельеварки. В продвинутом режиме - средняя: каждая пауза немного разная, как у человека.": "Pause between clicks in the brewing stand window. In advanced mode it's an average: every pause is slightly different, like a human.",
+ "Пауза между действиями. В продвинутом режиме - средняя: каждая пауза немного разная, как у человека.": "Pause between actions. In advanced mode it's an average: every pause is slightly different, like a human."
 }
