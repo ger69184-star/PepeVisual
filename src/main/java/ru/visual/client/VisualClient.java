@@ -38,6 +38,17 @@ public class VisualClient implements ClientModInitializer {
     public static KeyMapping buildRotate;
     public static KeyMapping buildCancel;
 
+    private static final java.util.Set<String> LOGGED = new java.util.HashSet<>();
+
+    /** Обработчики событий экранов - вне try/catch модулей: ошибка здесь иначе роняла бы игру. */
+    private static void safe(String who, Runnable r) {
+        try {
+            r.run();
+        } catch (Throwable t) {
+            if (LOGGED.add(who)) LOGGER.error("Ошибка в {} (событие экрана)", who, t);
+        }
+    }
+
     @Override
     public void onInitializeClient() {
         ModuleManager.init();
@@ -79,9 +90,10 @@ public class VisualClient implements ClientModInitializer {
         WorldRenderEvents.BEFORE_TRANSLUCENT.register(ModuleManager::renderWorld);
 
         // Кнопки сортировки в сундуках и превью шалкеров в инвентаре
+        // (подписка на afterRender не копится: Fabric пересоздаёт события экрана при каждом init/resize)
         ScreenEvents.AFTER_INIT.register((client, screen, w, h) -> {
-            ChestSorter.onScreenInit(client, screen);
-            ScreenEvents.afterRender(screen).register((s, g, mx, my, d) -> ShulkerPreview.onScreenRender(s, g, mx, my));
+            safe("ChestSorter", () -> ChestSorter.onScreenInit(client, screen));
+            ScreenEvents.afterRender(screen).register((s, g, mx, my, d) -> safe("ShulkerPreview", () -> ShulkerPreview.onScreenRender(s, g, mx, my)));
         });
 
         // Сломанный блок: забыть содержимое сундука и посчитать в статистике сессии

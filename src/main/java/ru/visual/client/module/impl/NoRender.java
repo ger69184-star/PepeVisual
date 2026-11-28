@@ -55,6 +55,8 @@ public class NoRender extends Module implements Config.DefaultOn {
         return nr != null && nr.isEnabled() && s.get();
     }
 
+    private static boolean crosshairErrorLogged;
+
     public static void registerHudReplacements() {
         NoRender nr = ModuleManager.noRender;
         replace(VanillaHudElements.MISC_OVERLAYS, () -> nr.overlays.get());
@@ -70,10 +72,19 @@ public class NoRender extends Module implements Config.DefaultOn {
         // Свой прицел рисуется ВМЕСТО ванильного - на его месте и при тех же условиях (не от 3-го лица и т.д.)
         HudElementRegistry.replaceElement(VanillaHudElements.CROSSHAIR, original -> (graphics, delta) -> {
             CustomCrosshair c = ModuleManager.crosshair;
-            if (c != null && c.isEnabled()) {
-                Minecraft mc = Minecraft.getInstance();
-                if (!mc.options.hideGui) c.renderInPlace(graphics, delta);
-                return;
+            Minecraft mc = Minecraft.getInstance();
+            if (c != null && c.isEnabled() && mc.player != null) {
+                if (mc.options.hideGui) return;
+                try {
+                    c.renderInPlace(graphics, delta);
+                    return;
+                } catch (Throwable t) {
+                    // ошибка в своём прицеле не должна валить игру (это уже не наш try/catch модулей) - рисуем ванильный
+                    if (!crosshairErrorLogged) {
+                        crosshairErrorLogged = true;
+                        ru.visual.client.VisualClient.LOGGER.error("Ошибка в CustomCrosshair, показан обычный прицел", t);
+                    }
+                }
             }
             original.render(graphics, delta);
         });
