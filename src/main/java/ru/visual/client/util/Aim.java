@@ -32,12 +32,21 @@ public final class Aim {
     private static long lastNanos;
     private static double lastErr = 999, angVel;
     private static int userCooldown;
+    private static double mul = 1.0;
+    /** Уступать ли камеру игроку, когда он сам двигает мышь (настройка текущего помощника). */
+    public static boolean yieldToUser = true;
 
     private Aim() {}
 
     /** Смотреть на точку (каждый тик, пока нужно). */
     public static void look(Object who, Vec3 p) {
+        look(who, p, 1.0);
+    }
+
+    /** Смотреть на точку; speedMul - множитель скорости поворота (настройка "Скорость камеры"). */
+    public static void look(Object who, Vec3 p, double speedMul) {
         if (p == null) return;
+        mul = Math.max(0.2, speedMul);
         if (who != owner || point == null || point.distanceToSqr(p) > 4.0) {
             // новая цель - "рука" каждый раз чуть другая
             speed = Human.rnd(7.0, 12.0);
@@ -147,7 +156,7 @@ public final class Aim {
         double dt = lastNanos == 0 ? 0 : Math.min(0.1, (now - lastNanos) / 1e9);
         lastNanos = now;
         LocalPlayer p = mc.player;
-        if (p == null || point == null || mc.screen != null || mc.isPaused() || userCooldown > 0 || dt <= 0 || ticks < frozenUntil) {
+        if (p == null || point == null || mc.screen != null || mc.isPaused() || (userCooldown > 0 && yieldToUser) || dt <= 0 || ticks < frozenUntil) {
             angVel = 0;
             return;
         }
@@ -164,9 +173,9 @@ public final class Aim {
             return;
         }
         // быстро в начале, мягко в конце; минимальная скорость - чтобы не "доползать" вечно
-        double step = err * (1 - Math.exp(-speed * dt));
-        step = Math.max(step, Math.min(err, 14 * dt));
-        step = Math.min(step, maxSpeed * dt);
+        double step = err * (1 - Math.exp(-speed * mul * dt));
+        step = Math.max(step, Math.min(err, 14 * mul * dt));
+        step = Math.min(step, maxSpeed * mul * dt);
         double t = now / 1e9 + phase;
         double wobble = 1 + 0.10 * Math.sin(t * 8.7) + 0.05 * Math.sin(t * 21.3);
         double my = ey / err * step * wobble;

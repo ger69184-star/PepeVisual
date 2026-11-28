@@ -25,13 +25,14 @@ import ru.visual.client.util.Human;
  * Не трогает элитры на спине и вещи с проклятием несъёмности. Работает без открытого инвентаря или в инвентаре игрока.
  */
 public class AutoArmor extends Module {
+    private final ru.visual.client.util.Human.Tune tune = humanTune(false, false);
     private static final EquipmentSlot[] SLOTS = {EquipmentSlot.HEAD, EquipmentSlot.CHEST, EquipmentSlot.LEGS, EquipmentSlot.FEET};
 
     private final BoolSetting upgrade = add(new BoolSetting("Заменять на лучшую", "Если в инвентаре есть броня лучше надетой - поменять (старая ляжет на её место).", true));
     private final BoolSetting keepElytra = add(new BoolSetting("Не снимать элитры", "Элитры на спине не меняются на нагрудник.", true));
     private final NumSetting minDurability = add(new NumSetting("Мин. прочность (%)", "Не надевать почти сломанные вещи.", 5, 0, 50, 1));
-    private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Средняя пауза между вещами (20 тиков = 1 сек). Каждая пауза немного разная, как у человека.", 6, 2, 30, 1));
-    private final BoolSetting onlyInventory = add(new BoolSetting("Только в открытом инвентаре", "Надевать броню, только когда ты сам открыл инвентарь (E) - самый незаметный вариант. Выкл: ещё и без окна, но только пока ты спокойно стоишь (не бежишь и не крутишь камерой).", false));
+    private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Пауза между вещами (20 тиков = 1 сек). В продвинутом режиме - средняя: каждая пауза немного разная, как у человека.", 6, 2, 30, 1));
+    private final BoolSetting onlyInventory = addIf(new BoolSetting("Только в открытом инвентаре", "Надевать броню, только когда ты сам открыл инвентарь (E) - самый незаметный вариант. Выкл: ещё и без окна, но только пока ты спокойно стоишь (не бежишь и не крутишь камерой).", false), tune::advanced);
 
     private int cooldown, react = -1;
     /** Клики по одному с паузами между ними. {слот, кнопка, тип} */
@@ -57,12 +58,13 @@ public class AutoArmor extends Module {
         if (!clicks.isEmpty()) {
             int[] c = clicks.pollFirst();
             mc.gameMode.handleInventoryMouseClick(p.inventoryMenu.containerId, c[0], c[1], ClickType.values()[c[2]], p);
-            cooldown = clicks.isEmpty() ? Human.ticks(delay.get()) : Human.range(2, 5);
+            cooldown = clicks.isEmpty() ? Human.ticks(delay.get()) : tune.react(2, 5);
             return;
         }
         if (!p.containerMenu.getCarried().isEmpty()) return;
         boolean open = mc.screen instanceof InventoryScreen;
-        if (!open && (onlyInventory.get() || !Human.standingStill(10))) {
+        boolean adv = tune.advanced();
+        if (adv && !open && (onlyInventory.get() || !Human.standingStill(10))) {
             react = -1;
             return;
         }
@@ -89,9 +91,22 @@ public class AutoArmor extends Module {
                 }
             }
             if (best < 0) continue;
+            if (!adv) {
+                // базовый режим (как раньше): все клики сразу
+                int id = p.inventoryMenu.containerId;
+                if (worn.isEmpty()) {
+                    mc.gameMode.handleInventoryMouseClick(id, best, 0, ClickType.QUICK_MOVE, p);
+                } else {
+                    mc.gameMode.handleInventoryMouseClick(id, best, 0, ClickType.PICKUP, p);
+                    mc.gameMode.handleInventoryMouseClick(id, armorMenuSlot, 0, ClickType.PICKUP, p);
+                    mc.gameMode.handleInventoryMouseClick(id, best, 0, ClickType.PICKUP, p);
+                }
+                cooldown = delay.asInt();
+                return;
+            }
             // заметили вещь получше - не в тот же тик
             if (react < 0) {
-                react = Human.range(4, 12);
+                react = tune.react(4, 12);
                 return;
             }
             if (react-- > 0) return;

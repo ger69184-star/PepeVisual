@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.NetherWartBlock;
 import net.minecraft.world.level.block.SweetBerryBushBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import ru.visual.client.module.Category;
 import ru.visual.client.module.Module;
@@ -28,6 +29,7 @@ import ru.visual.client.util.Human;
 import ru.visual.client.util.Keys;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -38,6 +40,7 @@ import java.util.Map;
  * Двинул мышь или нажал кнопку мыши сам - помощник ждёт.
  */
 public class AutoFarm extends Module {
+    private final Human.Tune tune = humanTune(true, true);
     private final BoolSetting crops = add(new BoolSetting("Злаки и овощи", "Собирать созревшую пшеницу, морковь, картошку и свёклу.", true));
     private final BoolSetting wart = add(new BoolSetting("Незер-бородавка", "Собирать созревшую незер-бородавку.", true));
     private final BoolSetting fruits = add(new BoolSetting("Тыквы и арбузы", "Ломать тыквы и арбузы, выросшие от стебля (декоративные не трогает).", false));
@@ -49,6 +52,7 @@ public class AutoFarm extends Module {
     private final BoolSetting berries = add(new BoolSetting("Сладкие ягоды", "Собирать спелые ягоды с кустов (куст не ломается).", false));
     private final BoolSetting boneMeal = add(new BoolSetting("Костная мука", "Удобрять незрелые посевы костной мукой из хотбара.", false));
     private final NumSetting reach = add(new NumSetting("Радиус", "Как далеко от тебя собирать урожай (блоки, не больше досягаемости руки).", 4.0, 1.5, 4.5, 0.5));
+    private final BoolSetting rotate = addIf(new BoolSetting("Смотреть на блок", "Поворачивать голову к блоку перед действием (выглядит естественнее, меньше вопросов от античита).", true), () -> !tune.advanced());
     private final BoolSetting show = add(new BoolSetting("Показывать зону", "3D: круг досягаемости, созревшие растения в радиусе подсвечены, ломаемый блок - ярче.", true));
     private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Средняя пауза между действиями. Каждая пауза немного разная, после серии действий - короткий перерыв, как у человека.", 4, 1, 12, 1));
 
@@ -69,6 +73,12 @@ public class AutoFarm extends Module {
     private final java.util.ArrayDeque<Replant> replants = new java.util.ArrayDeque<>();
     private final Map<BlockPos, Long> skip = new HashMap<>();
     private final Human.Pacer pacer = new Human.Pacer();
+    // базовый режим
+    private BlockPos breaking;
+    private int cd;
+    private final Map<BlockPos, long[]> pending = new HashMap<>();
+    private final Map<BlockPos, Item> pendingItem = new HashMap<>();
+    private Boolean lastAdvanced;
 
     public AutoFarm() {
         super("AutoFarm", "Помощь фермерам: автоматически собирает созревший урожай вокруг и сажает заново.", Category.HELPERS);
@@ -79,6 +89,11 @@ public class AutoFarm extends Module {
         Minecraft mc = Minecraft.getInstance();
         stopHold(mc);
         Aim.release(this);
+        if (breaking != null && mc.gameMode != null) mc.gameMode.stopDestroyBlock();
+        breaking = null;
+        pending.clear();
+        pendingItem.clear();
+        lastAdvanced = null;
         if (restoreSlot >= 0 && mc.player != null) mc.player.getInventory().setSelectedSlot(restoreSlot);
         restoreSlot = -1;
         job = null;
@@ -127,6 +142,26 @@ public class AutoFarm extends Module {
     @Override
     public void onTick(Minecraft mc) {
         tick++;
+        boolean adv = tune.advanced();
+        if (lastAdvanced == null || lastAdvanced != adv) {
+            // переключили режим - начинаем с чистого листа
+            if (lastAdvanced != null) {
+                Minecraft m = mc;
+                stopHold(m);
+                Aim.release(this);
+                if (breaking != null && m.gameMode != null) m.gameMode.stopDestroyBlock();
+                breaking = null;
+                job = null;
+                pending.clear();
+                pendingItem.clear();
+                replants.clear();
+            }
+            lastAdvanced = adv;
+        }
+        if (!adv) {
+            basicTick(mc);
+            return;
+        }
         LocalPlayer p = mc.player;
         ClientLevel level = mc.level;
         if (p == null || level == null || mc.gameMode == null) return;
@@ -134,8 +169,9 @@ public class AutoFarm extends Module {
             stopHold(mc);
             return;
         }
+        Aim.yieldToUser = tune.yieldToMouse();
         // игрок сам двигает мышь или жмёт кнопки мыши - не мешаем
-        if (Aim.userActive() || mc.mouseHandler.isLeftPressed() || mc.mouseHandler.isRightPressed()) {
+        if ((tune.yieldToMouse() && Aim.userActive()) || mc.mouseHandler.isLeftPressed() || mc.mouseHandler.isRightPressed()) {
             stopHold(mc);
             Aim.release(this);
             job = null;
@@ -154,10 +190,10 @@ public class AutoFarm extends Module {
                 if (job != null && st != null && !harvestable(level, st, job.pos)) harvested++;
                 stopHold(mc);
                 job = null;
-                pacer.done(delay.get());
+                pacer.done(delay.get(), tune.breaks());
                 return;
             }
-            Aim.look(this, job.point);
+            Aim.look(this, job.point, tune.cameraSpeed());
             if (mc.mouseHandler.isMouseGrabbed()) {
                 mc.options.keyAttack.setDown(true);
             } else {
@@ -183,10 +219,10 @@ public class AutoFarm extends Module {
             }
             idleTicks = 0;
             jobTicks = 0;
-            reaction = Human.range(1, 3);
+            reaction = tune.react(1, 3);
         }
 
-        Aim.look(this, job.point);
+        Aim.look(this, job.point, tune.cameraSpeed());
         if (++jobTicks > 60) { // так и не навели прицел (заслонили, далеко) - пропустим этот блок
             skip.put(job.pos, tick + 100);
             job = null;
@@ -198,7 +234,7 @@ public class AutoFarm extends Module {
                 job = null;
                 return;
             }
-            swapWait = Human.range(2, 4);
+            swapWait = tune.react(2, 4);
             return;
         }
         if (swapWait > 0) {
@@ -224,7 +260,7 @@ public class AutoFarm extends Module {
             case USE -> Keys.click(mc.options.keyUse);
         }
         Aim.freeze(Human.range(1, 2));
-        pacer.done(delay.get());
+        pacer.done(delay.get(), tune.breaks());
         job = null;
     }
 
@@ -371,6 +407,210 @@ public class AutoFarm extends Module {
         return false;
     }
 
+
+    // ================================================================ базовый режим (как раньше)
+
+    private void basicLook(LocalPlayer p, Vec3 target) {
+        if (!rotate.get()) return;
+        Vec3 eye = p.getEyePosition();
+        double dx = target.x - eye.x, dy = target.y - eye.y, dz = target.z - eye.z;
+        double h = Math.sqrt(dx * dx + dz * dz);
+        float yaw = (float) Math.toDegrees(Math.atan2(dz, dx)) - 90f;
+        float pitch = (float) -Math.toDegrees(Math.atan2(dy, h));
+        p.setYRot(p.getYRot() + net.minecraft.util.Mth.wrapDegrees(yaw - p.getYRot()));
+        p.setXRot(net.minecraft.util.Mth.clamp(pitch, -90f, 90f));
+    }
+
+    /** Базовый режим (как раньше): камера сразу на блок, действия напрямую, пауза всегда одинаковая. */
+    private void basicTick(Minecraft mc) {
+        LocalPlayer p = mc.player;
+        ClientLevel level = mc.level;
+        if (p == null || level == null || mc.gameMode == null || mc.screen != null || p.isUsingItem()) return;
+
+        // Ломание блока продолжаем КАЖДЫЙ тик (иначе тыквы/арбузы ломались в несколько раз дольше)
+        if (breaking != null) {
+            BlockState st = level.getBlockState(breaking);
+            if (!harvestable(level, st, breaking) || p.getEyePosition().distanceToSqr(Vec3.atCenterOf(breaking)) > 36) {
+                if (!st.isAir()) mc.gameMode.stopDestroyBlock();
+                breaking = null;
+                cd = delay.asInt();
+            } else {
+                basicLook(p, Vec3.atCenterOf(breaking));
+                mc.gameMode.continueDestroyBlock(breaking, Direction.UP);
+                p.swing(InteractionHand.MAIN_HAND);
+                return;
+            }
+        }
+
+        if (cd > 0) {
+            cd--;
+            return;
+        }
+
+        if (replant.get() && basicReplant(mc, p, level)) {
+            cd = delay.asInt();
+            return;
+        }
+        if (berries.get() && basicBerries(mc, p, level)) {
+            cd = delay.asInt();
+            return;
+        }
+
+        BlockPos target = basicFindTarget(p, level);
+        if (target == null) {
+            if (plantEmpty.get() && basicPlantEmpty(mc, p, level)) {
+                cd = delay.asInt();
+                return;
+            }
+            if (boneMeal.get() && basicBoneMeal(mc, p, level)) {
+                cd = delay.asInt();
+                return;
+            }
+            // работы нет - возвращаем слот, который был выбран до пересадки
+            if (restoreSlot >= 0 && pending.isEmpty()) {
+                p.getInventory().setSelectedSlot(restoreSlot);
+                restoreSlot = -1;
+            }
+            return;
+        }
+        harvested++;
+        BlockState st = level.getBlockState(target);
+        Item seed = seedFor(st);
+        basicLook(p, Vec3.atCenterOf(target));
+        mc.gameMode.startDestroyBlock(target, Direction.UP);
+        p.swing(InteractionHand.MAIN_HAND);
+        if (!level.getBlockState(target).isAir()) breaking = target.immutable();
+        if (seed != null && replant.get()) {
+            pending.put(target.immutable(), new long[]{tick});
+            pendingItem.put(target.immutable(), seed);
+        }
+        cd = delay.asInt();
+    }
+
+    private BlockPos basicFindTarget(LocalPlayer p, ClientLevel level) {
+        Vec3 eye = p.getEyePosition();
+        int r = (int) Math.ceil(reach.get());
+        BlockPos base = p.blockPosition();
+        BlockPos best = null;
+        double bestD = Double.MAX_VALUE, max = reach.get() * reach.get();
+        BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dy = -r; dy <= r; dy++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    m.set(base.getX() + dx, base.getY() + dy, base.getZ() + dz);
+                    double d = eye.distanceToSqr(Vec3.atCenterOf(m));
+                    if (d > max || d >= bestD) continue;
+                    if (harvestable(level, level.getBlockState(m), m)) {
+                        bestD = d;
+                        best = m.immutable();
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    private void basicUse(Minecraft mc, LocalPlayer p, BlockPos pos, Direction face) {
+        Vec3 hit = Vec3.atCenterOf(pos).add(face.getStepX() * 0.5, face.getStepY() * 0.5, face.getStepZ() * 0.5);
+        basicLook(p, hit);
+        mc.gameMode.useItemOn(p, InteractionHand.MAIN_HAND, new BlockHitResult(hit, face, pos, false));
+        p.swing(InteractionHand.MAIN_HAND);
+    }
+
+    /** Ближайший блок в радиусе, подходящий под условие. */
+    private BlockPos basicNearest(LocalPlayer p, ClientLevel level, java.util.function.BiPredicate<BlockPos, BlockState> test) {
+        Vec3 eye = p.getEyePosition();
+        int r = (int) Math.ceil(reach.get());
+        BlockPos base = p.blockPosition();
+        BlockPos best = null;
+        double bestD = Double.MAX_VALUE, max = reach.get() * reach.get();
+        BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+        for (int dx = -r; dx <= r; dx++) for (int dy = -r; dy <= r; dy++) for (int dz = -r; dz <= r; dz++) {
+            m.set(base.getX() + dx, base.getY() + dy, base.getZ() + dz);
+            double d = eye.distanceToSqr(Vec3.atCenterOf(m));
+            if (d > max || d >= bestD) continue;
+            if (test.test(m, level.getBlockState(m))) {
+                bestD = d;
+                best = m.immutable();
+            }
+        }
+        return best;
+    }
+
+    private boolean basicPlantEmpty(Minecraft mc, LocalPlayer p, ClientLevel level) {
+        BlockPos ground = basicNearest(p, level, (pos, st) -> (st.is(Blocks.FARMLAND) || st.is(Blocks.SOUL_SAND)) && level.getBlockState(pos.above()).isAir());
+        if (ground == null) return false;
+        Item seed = pickSeed(p, level.getBlockState(ground).is(Blocks.SOUL_SAND));
+        if (seed == null || !selectHotbar(p, seed)) return false;
+        basicUse(mc, p, ground, Direction.UP);
+        return true;
+    }
+
+    private boolean basicBerries(Minecraft mc, LocalPlayer p, ClientLevel level) {
+        BlockPos bush = basicNearest(p, level, (pos, st) -> st.is(Blocks.SWEET_BERRY_BUSH) && st.getValue(SweetBerryBushBlock.AGE) >= 3);
+        if (bush == null) return false;
+        basicUse(mc, p, bush, Direction.UP);
+        harvested++;
+        return true;
+    }
+
+    private boolean basicBoneMeal(Minecraft mc, LocalPlayer p, ClientLevel level) {
+        if (!hasHotbar(p, Items.BONE_MEAL)) return false;
+        BlockPos crop = basicNearest(p, level, (pos, st) -> st.getBlock() instanceof CropBlock cb && !cb.isMaxAge(st));
+        if (crop == null || !selectHotbar(p, Items.BONE_MEAL)) return false;
+        basicUse(mc, p, crop, Direction.UP);
+        return true;
+    }
+
+    private boolean basicReplant(Minecraft mc, LocalPlayer p, ClientLevel level) {
+        Iterator<Map.Entry<BlockPos, long[]>> it = pending.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<BlockPos, long[]> e = it.next();
+            BlockPos pos = e.getKey();
+            Item seed = pendingItem.get(pos);
+            if (tick - e.getValue()[0] > 100 || seed == null) {
+                it.remove();
+                pendingItem.remove(pos);
+                continue;
+            }
+            if (!level.getBlockState(pos).isAir()) continue;
+            BlockPos below = pos.below();
+            BlockState ground = level.getBlockState(below);
+            boolean okGround = seed == Items.NETHER_WART ? ground.is(Blocks.SOUL_SAND) : ground.is(Blocks.FARMLAND);
+            if (!okGround) {
+                it.remove();
+                pendingItem.remove(pos);
+                continue;
+            }
+            Inventory inv = p.getInventory();
+            int slot = -1;
+            for (int i = 0; i < 9; i++) {
+                if (inv.getItem(i).is(seed)) {
+                    slot = i;
+                    break;
+                }
+            }
+            if (slot < 0) {
+                it.remove();
+                pendingItem.remove(pos);
+                continue;
+            }
+            if (inv.getSelectedSlot() != slot) {
+                if (restoreSlot < 0) restoreSlot = inv.getSelectedSlot();
+                inv.setSelectedSlot(slot);
+            }
+            basicLook(p, Vec3.atCenterOf(below).add(0, 0.5, 0));
+            mc.gameMode.useItemOn(p, InteractionHand.MAIN_HAND,
+                    new BlockHitResult(Vec3.atCenterOf(below).add(0, 0.5, 0), Direction.UP, below, false));
+            p.swing(InteractionHand.MAIN_HAND);
+            it.remove();
+            pendingItem.remove(pos);
+            return true;
+        }
+        return false;
+    }
+
+
     private int ripeTimer;
     private java.util.List<BlockPos> ripe = new java.util.ArrayList<>();
 
@@ -391,7 +631,7 @@ public class AutoFarm extends Module {
             ripe = out;
         }
         Job cur = job;
-        BlockPos hl = cur == null ? null : cur.pos;
+        BlockPos hl = cur == null ? breaking : cur.pos;
         for (BlockPos q : ripe) {
             AABB box = new AABB(q).deflate(0.15);
             ru.visual.client.util.R3D.boxOutline(box, q.equals(hl) ? 0xFFFFE040 : 0x9055FF77, q.equals(hl) ? 2.2f : 1.2f);

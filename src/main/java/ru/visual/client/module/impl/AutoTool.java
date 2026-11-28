@@ -14,6 +14,7 @@ import ru.visual.client.setting.NumSetting;
 
 /** Сам берёт в руку лучший инструмент из хотбара, когда ты начинаешь ломать блок. */
 public class AutoTool extends Module {
+    private final ru.visual.client.util.Human.Tune tune = humanTune(false, false);
     private final BoolSetting restore = add(new BoolSetting("Вернуть слот", "Когда перестаёшь копать - вернуть предмет, который был в руке.", true));
     private final NumSetting saveTool = add(new NumSetting("Беречь инструмент", "Не брать инструмент, если прочности осталось меньше (0 - не беречь).", 10, 0, 100, 1));
     private final BoolSetting onlyFaster = add(new BoolSetting("Только если быстрее", "Не менять предмет, если текущий ломает не хуже.", true));
@@ -52,7 +53,7 @@ public class AutoTool extends Module {
             }
             return;
         }
-        if (idle > 0) idleLimit = ru.visual.client.util.Human.range(6, 16);
+        if (idle > 0) idleLimit = tune.advanced() ? tune.react(6, 16) : 4;
         idle = 0;
         BlockState st = mc.level.getBlockState(((BlockHitResult) mc.hitResult).getBlockPos());
         if (st.isAir() || st.getDestroySpeed(mc.level, ((BlockHitResult) mc.hitResult).getBlockPos()) < 0) return;
@@ -80,12 +81,14 @@ public class AutoTool extends Module {
             return;
         }
         if (onlyFaster.get() && bestSpeed <= curSpeed && bestCorrect == curCorrect) return;
-        if (pendingSlot != best) {
-            pendingSlot = best;
-            pendingWait = ru.visual.client.util.Human.range(1, 4);
-            return;
+        if (tune.advanced()) { // продвинутый: меняем предмет не в тот же миг, как человек
+            if (pendingSlot != best) {
+                pendingSlot = best;
+                pendingWait = tune.react(1, 4);
+                return;
+            }
+            if (pendingWait-- > 0) return;
         }
-        if (pendingWait-- > 0) return;
         pendingSlot = -1;
         if (previous < 0) previous = cur;
         inv.setSelectedSlot(best);

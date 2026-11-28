@@ -19,6 +19,7 @@ import ru.visual.client.util.Keys;
  * В режиме "Мало HP" возвращает прежний предмет (щит, еду) на место, когда здоровье восстановилось.
  */
 public class AutoTotem extends Module {
+    private final Human.Tune tune = humanTune(false, false);
     private final ModeSetting mode = add(new ModeSetting("Когда", "Всегда - тотем во второй руке постоянно. Мало HP - только в опасности, остальное время там твой предмет.",
             "Всегда", "Всегда", "Мало HP"));
     private final NumSetting hearts = add(new NumSetting("Порог (сердца)", "В режиме \"Мало HP\": брать тотем, когда здоровье + золотые сердца ниже этого.", 6, 1, 10, 0.5));
@@ -26,7 +27,7 @@ public class AutoTotem extends Module {
     private final BoolSetting elytra = add(new BoolSetting("На элитрах", "Брать тотем во время полёта на элитрах (удар о стену).", true));
     private final BoolSetting giveBack = add(new BoolSetting("Вернуть предмет", "В режиме \"Мало HP\": когда опасность прошла, вернуть во вторую руку прежний предмет.", true));
     private final NumSetting delay = add(new NumSetting("Задержка (тики)", "Добавочная пауза перед перекладыванием (20 тиков = 1 сек). Реакция всегда немного разная, как у человека.", 1, 0, 10, 1));
-    private final BoolSetting invMoving = add(new BoolSetting("Из инвентаря на ходу", "Брать тотем из основного инвентаря даже на бегу (без открытого инвентаря так не может ни один игрок - античит может заметить). Выкл: из хотбара - всегда, клавишей F; из инвентаря - только когда стоишь или открыл инвентарь.", false));
+    private final BoolSetting invMoving = addIf(new BoolSetting("Из инвентаря на ходу", "Брать тотем из основного инвентаря даже на бегу (без открытого инвентаря так не может ни один игрок - античит может заметить). Выкл: из хотбара - всегда, клавишей F; из инвентаря - только когда стоишь или открыл инвентарь.", false), tune::advanced);
 
     /** Слот меню инвентаря, откуда взят тотем (там теперь лежит прежний предмет второй руки), -1 - нет. */
     private int swappedFrom = -1;
@@ -52,6 +53,11 @@ public class AutoTotem extends Module {
     public void onTick(Minecraft mc) {
         LocalPlayer p = mc.player;
         if (p == null || mc.gameMode == null || p.getAbilities().instabuild || p.isDeadOrDying()) return;
+        if (!tune.advanced()) {
+            step = 0;
+            basicTick(mc, p);
+            return;
+        }
         if (step != 0) {
             runStep(mc, p);
             return;
@@ -74,7 +80,7 @@ public class AutoTotem extends Module {
         if (need && !holding) {
             // реакция: в опасности быстрее, в спокойной обстановке - не спеша
             if (react < 0) {
-                react = (danger ? Human.range(1, 4) : Human.range(6, 16)) + delay.asInt();
+                react = (danger ? tune.react(1, 4) : tune.react(6, 16)) + delay.asInt();
                 return;
             }
             if (react-- > 0) return;
@@ -112,6 +118,45 @@ public class AutoTotem extends Module {
         }
     }
 
+    /** Базовый режим (как раньше): тотем из любого слота инвентаря сразу, одним кликом, в любой момент. */
+    private void basicTick(Minecraft mc, LocalPlayer p) {
+        if (cooldown > 0) {
+            cooldown--;
+            return;
+        }
+        if (mc.screen != null && !(mc.screen instanceof InventoryScreen)) return;
+        if (!p.containerMenu.getCarried().isEmpty()) return;
+        boolean holding = p.getOffhandItem().is(Items.TOTEM_OF_UNDYING);
+        float hp = p.getHealth() + p.getAbsorptionAmount();
+        boolean danger = hp <= hearts.get() * 2
+                || (fall.get() && p.fallDistance > 6 && !p.onGround() && !p.isInWater())
+                || (elytra.get() && p.isFallFlying());
+        boolean need = mode.is("Всегда") || danger;
+        if (need && !holding) {
+            int slot = -1;
+            for (int i = 9; i <= 44; i++) {
+                if (p.inventoryMenu.getSlot(i).getItem().is(Items.TOTEM_OF_UNDYING)) {
+                    slot = i;
+                    break;
+                }
+            }
+            if (slot < 0) return;
+            mc.gameMode.handleInventoryMouseClick(p.inventoryMenu.containerId, slot, 40, ClickType.SWAP, p);
+            cooldown = delay.asInt();
+            swappedFrom = mode.is("Всегда") ? -1 : slot;
+            hotbarFrom = -1;
+            return;
+        }
+        if (!need && holding && giveBack.get() && swappedFrom >= 0 && hp > hearts.get() * 2 + 4) {
+            if (!p.inventoryMenu.getSlot(swappedFrom).getItem().is(Items.TOTEM_OF_UNDYING)) {
+                mc.gameMode.handleInventoryMouseClick(p.inventoryMenu.containerId, swappedFrom, 40, ClickType.SWAP, p);
+                cooldown = delay.asInt();
+            }
+            swappedFrom = -1;
+        }
+        if (!holding && swappedFrom >= 0 && !need) swappedFrom = -1;
+    }
+
     /** Перекладывать в инвентаре без открытого окна можно, только когда игрок спокойно стоит (или это разрешено). */
     private boolean inventoryAllowed(Minecraft mc) {
         return mc.screen instanceof InventoryScreen || invMoving.get() || Human.standingStill(8);
@@ -121,7 +166,7 @@ public class AutoTotem extends Module {
         prevSlot = p.getInventory().getSelectedSlot();
         if (hb != prevSlot) {
             p.getInventory().setSelectedSlot(hb);
-            stepWait = Human.range(1, 3);
+            stepWait = tune.react(1, 3);
         } else {
             prevSlot = -1;
             stepWait = 0;
@@ -141,7 +186,7 @@ public class AutoTotem extends Module {
             }
             Keys.click(mc.options.keySwapOffhand);
             step = 2;
-            stepWait = Human.range(2, 5);
+            stepWait = tune.react(2, 5);
             return;
         }
         if (prevSlot >= 0 && mc.screen == null) p.getInventory().setSelectedSlot(prevSlot);

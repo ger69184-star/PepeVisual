@@ -83,8 +83,13 @@ public final class Human {
 
         /** Действие сделано: следующая пауза около baseTicks. */
         public void done(double baseTicks) {
+            done(baseTicks, true);
+        }
+
+        /** То же, breaks = делать ли перерывы после серии действий. */
+        public void done(double baseTicks, boolean breaks) {
             wait = ticks(baseTicks);
-            if (++actions >= nextBreak) {
+            if (breaks && ++actions >= nextBreak) {
                 actions = 0;
                 nextBreak = range(10, 25);
                 wait += range(12, 40);
@@ -98,6 +103,40 @@ public final class Human {
 
         public void reset() {
             wait = 0;
+        }
+    }
+
+    /**
+     * Настройки поведения помощника: "Базовый" (как раньше - быстро и точно) или "Продвинутый" (как живой игрок)
+     * и подстройка продвинутого режима. Создаётся через Module.humanTune(...) первой строкой модуля.
+     */
+    public static final class Tune {
+        public static final String BASIC = "Базовый", ADVANCED = "Продвинутый";
+        public ru.visual.client.setting.ModeSetting mode;
+        public ru.visual.client.setting.NumSetting reaction, camera;
+        public ru.visual.client.setting.BoolSetting breaks, yieldMouse;
+
+        public boolean advanced() {
+            return mode == null || mode.is(ADVANCED);
+        }
+
+        /** Случайная пауза реакции min..max тиков с учётом настройки "Реакция". */
+        public int react(int min, int max) {
+            double k = reaction == null ? 1.0 : reaction.get();
+            return range((int) Math.round(min * k), (int) Math.round(max * k));
+        }
+
+        public double cameraSpeed() {
+            return camera == null ? 1.0 : camera.get();
+        }
+
+        public boolean breaks() {
+            return breaks == null || breaks.get();
+        }
+
+        /** Уступать камеру, когда игрок сам двигает мышь. */
+        public boolean yieldToMouse() {
+            return yieldMouse == null || yieldMouse.get();
         }
     }
 }

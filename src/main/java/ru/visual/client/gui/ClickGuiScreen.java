@@ -573,7 +573,7 @@ public class ClickGuiScreen extends Screen {
 
     private static int settingsHeight(Module m) {
         int h = ROW + 6; // строка клавиши + отступы
-        for (Setting<?> s : m.settings) if (!s.hidden) h += rowHeight(s);
+        for (Setting<?> s : m.settings) if (s.shown()) h += rowHeight(s);
         return h;
     }
 
@@ -657,7 +657,7 @@ public class ClickGuiScreen extends Screen {
         }
 
         for (Setting<?> s : m.settings) {
-            if (s.hidden) continue;
+            if (!s.shown()) continue;
             int rh = rowHeight(s);
             boolean hov = rowHover(mx, my, x, ry, w, rh, cardBottom);
             boolean vis = rowVisible(ry, rh, cardBottom);

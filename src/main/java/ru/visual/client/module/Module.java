@@ -27,6 +27,39 @@ public abstract class Module {
         this.category = category;
     }
 
+    /**
+     * Переключатель "Базовый / Продвинутый" для помощников и подстройка продвинутого режима.
+     * Вызывать ПЕРВЫМ полем модуля, чтобы переключатель был наверху списка настроек.
+     */
+    protected ru.visual.client.util.Human.Tune humanTune(boolean camera, boolean breaks) {
+        ru.visual.client.util.Human.Tune t = new ru.visual.client.util.Human.Tune();
+        t.mode = add(new ru.visual.client.setting.ModeSetting("Поведение",
+                "Базовый - как раньше: быстро и точно, камера сразу смотрит на блок, клики без пауз. "
+                        + "Продвинутый - как живой игрок: плавная камера, обычные нажатия, разные паузы (меньше вопросов от античита).",
+                ru.visual.client.util.Human.Tune.ADVANCED, ru.visual.client.util.Human.Tune.BASIC, ru.visual.client.util.Human.Tune.ADVANCED));
+        t.reaction = addIf(new ru.visual.client.setting.NumSetting("Реакция",
+                "Продвинутый режим: множитель пауз реакции. Меньше 1 - быстрее (но менее естественно), больше 1 - спокойнее.",
+                1.0, 0.3, 3.0, 0.1), t::advanced);
+        if (camera) {
+            t.camera = addIf(new ru.visual.client.setting.NumSetting("Скорость камеры",
+                    "Продвинутый режим: как быстро помощник поворачивает камеру. 1 - как обычный игрок, 2 - резко, 0.5 - очень плавно.",
+                    1.0, 0.4, 2.5, 0.1), t::advanced);
+            t.yieldMouse = addIf(new ru.visual.client.setting.BoolSetting("Уступать мыши",
+                    "Продвинутый режим: если ты сам двигаешь мышь, помощник ждёт и не тянет камеру.", true), t::advanced);
+        }
+        if (breaks) {
+            t.breaks = addIf(new ru.visual.client.setting.BoolSetting("Перерывы",
+                    "Продвинутый режим: после 10-25 действий делать короткий перерыв (0.6-2 сек), как живой игрок.", true), t::advanced);
+        }
+        return t;
+    }
+
+    /** Настройка, которая видна в меню только при условии (значение всё равно сохраняется в конфиг). */
+    protected <S extends Setting<?>> S addIf(S setting, java.util.function.BooleanSupplier visible) {
+        setting.visible = visible;
+        return add(setting);
+    }
+
     protected <S extends Setting<?>> S add(S setting) {
         settings.add(setting);
         return setting;

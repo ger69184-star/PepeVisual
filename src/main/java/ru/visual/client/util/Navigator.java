@@ -45,6 +45,10 @@ public final class Navigator {
     private BlockPos doorPos;
     private Vec3 doorPoint;
     public boolean failed;
+    /** true - "как человек" (плавная камера через Aim, двери взглядом и ПКМ), false - базовый режим (резкий поворот, как раньше). */
+    public boolean human = true;
+    /** Множитель скорости камеры в человеческом режиме. */
+    public double camSpeed = 1.0;
 
     public boolean hasPath() {
         return !path.isEmpty();
@@ -233,6 +237,17 @@ public final class Navigator {
             return tick(mc, p);
         }
 
+        if (!human) {
+            // базовый режим (как раньше): поворот до 30 градусов за тик, двери открываются без взгляда
+            openDoorsBasic(mc, p);
+            float target = (float) Math.toDegrees(Math.atan2(-dx, dz));
+            float diff = Mth.wrapDegrees(target - p.getYRot());
+            p.setYRot(p.getYRot() + Mth.clamp(diff, -30f, 30f));
+            mc.options.keyUp.setDown(Math.abs(diff) < 50f);
+            boolean jump = p.onGround() && ((dy > 0.6 && hd < 1.6) || (p.horizontalCollision && Math.abs(diff) < 30f));
+            mc.options.keyJump.setDown(jump);
+            return stuckCheck(mc, p);
+        }
         if (openDoors(mc, p)) {
             mc.options.keyUp.setDown(false);
             mc.options.keyJump.setDown(false);
@@ -244,7 +259,7 @@ public final class Navigator {
         if (hd < 1.4 && idx + 1 < path.size()) aheadC = Vec3.atBottomCenterOf(path.get(idx + 1));
         double ax = aheadC.x - p.getX(), az = aheadC.z - p.getZ();
         double al = Math.max(1e-3, Math.sqrt(ax * ax + az * az)), far = Math.max(3.0, al);
-        Aim.look(this, new Vec3(p.getX() + ax / al * far, p.getEyeY() - 0.75 + Mth.clamp(dy, -1, 1) * 0.5, p.getZ() + az / al * far));
+        Aim.look(this, new Vec3(p.getX() + ax / al * far, p.getEyeY() - 0.75 + Mth.clamp(dy, -1, 1) * 0.5, p.getZ() + az / al * far), camSpeed);
 
         float target = (float) Math.toDegrees(Math.atan2(-dx, dz));
         float diff = Mth.wrapDegrees(target - p.getYRot());
@@ -252,7 +267,11 @@ public final class Navigator {
         boolean jump = p.onGround() && ((dy > 0.6 && hd < 1.6) || (p.horizontalCollision && Math.abs(diff) < 30f));
         mc.options.keyJump.setDown(jump);
 
-        // застревание
+        return stuckCheck(mc, p);
+    }
+
+    /** Застревание: 2 секунды почти на месте - путь не удался. */
+    private boolean stuckCheck(Minecraft mc, LocalPlayer p) {
         Vec3 pos = p.position();
         if (lastPos != null && lastPos.distanceToSqr(pos) < 0.0004) stuck++;
         else stuck = 0;
@@ -260,9 +279,28 @@ public final class Navigator {
         if (stuck > 40) {
             stop(mc);
             failed = true;
-            return false;
         }
         return false;
+    }
+
+    /** Базовый режим: открыть закрытую дверь/калитку рядом на пути сразу, без взгляда (как раньше). */
+    private void openDoorsBasic(Minecraft mc, LocalPlayer p) {
+        if (doorCooldown > 0) {
+            doorCooldown--;
+            return;
+        }
+        for (int i = idx; i < Math.min(path.size(), idx + 2); i++) {
+            for (BlockPos b : new BlockPos[]{path.get(i), path.get(i).above()}) {
+                BlockState s = mc.level.getBlockState(b);
+                if (!openable(s)) continue;
+                boolean open = s.getBlock() instanceof DoorBlock d ? d.isOpen(s) : s.getValue(FenceGateBlock.OPEN);
+                if (open) continue;
+                if (p.getEyePosition().distanceTo(Vec3.atCenterOf(b)) > 3.5) continue;
+                mc.gameMode.useItemOn(p, InteractionHand.MAIN_HAND, new BlockHitResult(Vec3.atCenterOf(b), Direction.UP, b, false));
+                doorCooldown = 10;
+                return;
+            }
+        }
     }
 
     /**
@@ -287,7 +325,7 @@ public final class Navigator {
                     if (doorPoint == null) doorPoint = Vec3.atCenterOf(b);
                     doorTicks = 0;
                 }
-                Aim.look(this, doorPoint);
+                Aim.look(this, doorPoint, camSpeed);
                 boolean onDoor = Aim.crosshairOn(mc, b) || (openable(mc.level.getBlockState(b.above())) && Aim.crosshairOn(mc, b.above()))
                         || (openable(mc.level.getBlockState(b.below())) && Aim.crosshairOn(mc, b.below()));
                 if (onDoor && Aim.settled(this) && ++doorTicks > 1) {

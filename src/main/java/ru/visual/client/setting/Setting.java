@@ -18,6 +18,14 @@ public abstract class Setting<T> {
     /** Скрытая настройка: сохраняется в конфиг, но в меню не показывается (например, позиция HUD - её двигают мышью). */
     public boolean hidden;
 
+    /** Показывать только при условии (например, настройки "Продвинутого" режима). null - всегда. */
+    public java.util.function.BooleanSupplier visible;
+
+    /** Видна ли настройка в меню сейчас. */
+    public boolean shown() {
+        return !hidden && (visible == null || visible.getAsBoolean());
+    }
+
     public T get() {
         return value;
     }

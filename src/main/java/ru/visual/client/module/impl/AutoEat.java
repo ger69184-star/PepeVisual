@@ -20,6 +20,7 @@ import ru.visual.client.util.Keys;
 
 /** Сам ест, когда голод падает ниже порога. Еду берёт из хотбара. */
 public class AutoEat extends Module {
+    private final ru.visual.client.util.Human.Tune tune = humanTune(false, false);
     private static final Set<Item> BAD = Set.of(Items.ROTTEN_FLESH, Items.SPIDER_EYE, Items.POISONOUS_POTATO, Items.PUFFERFISH,
             Items.CHORUS_FRUIT, Items.SUSPICIOUS_STEW, Items.CHICKEN, Items.GOLDEN_APPLE, Items.ENCHANTED_GOLDEN_APPLE);
 
@@ -56,7 +57,13 @@ public class AutoEat extends Module {
         Keys.release(mc, mc.options.keyUse);
         eatingSlot = -1;
         ticks = 0;
-        restoreWait = previous >= 0 ? Human.range(4, 12) : 0;
+        if (!tune.advanced()) { // базовый: слот возвращаем сразу
+            if (mc.player != null && previous >= 0) mc.player.getInventory().setSelectedSlot(previous);
+            previous = -1;
+            restoreWait = 0;
+            return;
+        }
+        restoreWait = previous >= 0 ? tune.react(4, 12) : 0;
     }
 
     @Override
@@ -107,13 +114,16 @@ public class AutoEat extends Module {
             return;
         }
         // не посреди клика/копания и не пока помощник наводит камеру
-        if (mc.mouseHandler.isLeftPressed() || mc.mouseHandler.isRightPressed() || Aim.active()) return;
-        if (reactWait < 0) {
-            reactWait = Human.range(8, 30); // заметил, что голоден, не в тот же тик
-            return;
+        boolean adv = tune.advanced();
+        if (adv) {
+            if (mc.mouseHandler.isLeftPressed() || mc.mouseHandler.isRightPressed() || Aim.active()) return;
+            if (reactWait < 0) {
+                reactWait = tune.react(8, 30); // заметил, что голоден, не в тот же тик
+                return;
+            }
+            if (reactWait-- > 0) return;
+            reactWait = -1;
         }
-        if (reactWait-- > 0) return;
-        reactWait = -1;
         int slot = pick(p, 20 - food);
         if (slot < 0) return;
         previous = p.getInventory().getSelectedSlot();
@@ -121,7 +131,8 @@ public class AutoEat extends Module {
         eatingSlot = slot;
         if (slot != previous) {
             p.getInventory().setSelectedSlot(slot);
-            startWait = Human.range(2, 5);
+            startWait = adv ? tune.react(2, 5) : 0;
+            if (startWait <= 0) mc.options.keyUse.setDown(true);
         } else {
             previous = -1;
             startWait = 0;
