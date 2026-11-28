@@ -6,12 +6,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.projectile.Arrow;
-import net.minecraft.world.entity.projectile.Fireball;
-import net.minecraft.world.entity.projectile.LlamaSpit;
-import net.minecraft.world.entity.projectile.ShulkerBullet;
-import net.minecraft.world.entity.projectile.Trident;
-import net.minecraft.world.entity.projectile.WitherSkull;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import ru.visual.client.module.Category;
 import ru.visual.client.module.Module;
@@ -36,8 +31,7 @@ public class ProjectileWarning extends Module {
     }
 
     private static boolean isProjectile(Entity e) {
-        return e instanceof Arrow || e instanceof Trident || e instanceof ShulkerBullet
-                || e instanceof Fireball || e instanceof WitherSkull || e instanceof LlamaSpit;
+        return e instanceof Projectile;
     }
 
     @Override
@@ -56,7 +50,7 @@ public class ProjectileWarning extends Module {
         target = found;
         if (found != null && found != lastWarned && sound.get() && System.currentTimeMillis() - soundAt > 300) {
             if (mc.player != null) {
-                mc.player.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP.value(), 0.7f, 0.8f);
+                mc.player.playSound(SoundEvents.EXPERIENCE_ORB_PICKUP, 0.7f, 0.8f);
             }
             lastWarned = found;
             soundAt = System.currentTimeMillis();
